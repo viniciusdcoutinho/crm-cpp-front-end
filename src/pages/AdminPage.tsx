@@ -108,18 +108,51 @@ export function AdminPage() {
 function UsersTab() {
   const qc = useQueryClient()
   const { data: users = [] } = useQuery({ queryKey: ['admin-users'], queryFn: adminApi.listUsers })
+  const emptyForm = { name: '', email: '', password: '', role: 'vendedora', opensAgentName: '', opensAgentPeer: '', opensUserId: '', mondayPersonId: '' }
   const [showForm, setShowForm] = useState(false)
-  const emptyForm = { name: '', email: '', password: '', role: 'vendedora', opensAgentName: '', opensAgentPeer: '', mondayPersonId: '' }
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+
+  const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
 
   const create = useMutation({
     mutationFn: adminApi.createUser,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); setShowForm(false); setForm(emptyForm) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); reset() },
+  })
+  const update = useMutation({
+    mutationFn: ({ id, ...data }: any) => adminApi.updateUser(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); reset() },
   })
   const toggle = useMutation({
     mutationFn: ({ id, active }: any) => adminApi.updateUser(id, { active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   })
+
+  const openCreate = () => { setEditingId(null); setForm(emptyForm); setShowForm(true) }
+  const openEdit = (u: any) => {
+    setEditingId(u.id)
+    setForm({
+      name: u.name || '', email: u.email || '', password: '',
+      role: u.role || 'vendedora',
+      opensAgentName: u.opensAgentName || '',
+      opensAgentPeer: u.opensAgentPeer || '',
+      opensUserId: u.opensUserId || '',
+      mondayPersonId: u.mondayPersonId || '',
+    })
+    setShowForm(true)
+  }
+
+  const submit = () => {
+    if (editingId) {
+      const { password: _p, email: _e, ...rest } = form
+      update.mutate({ id: editingId, ...rest })
+    } else {
+      create.mutate(form)
+    }
+  }
+
+  const isEditing = editingId !== null
+  const isPending = create.isPending || update.isPending
 
   const inputCls = 'w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-100'
 
@@ -127,19 +160,32 @@ function UsersTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-gray-600">{users.length} usuário(s)</p>
-        <button onClick={() => setShowForm(!showForm)} className="text-sm text-blue-600 hover:underline">
-          + Novo usuário
+        <button onClick={() => showForm ? reset() : openCreate()} className="text-sm text-blue-600 hover:underline">
+          {showForm ? 'Cancelar' : '+ Novo usuário'}
         </button>
       </div>
 
       {showForm && (
         <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3">
-          {([['Nome', 'name', 'text'], ['E-mail', 'email', 'email'], ['Senha', 'password', 'password'], ['Agente Opens (nome)', 'opensAgentName', 'text'], ['Ramal Opens', 'opensAgentPeer', 'text'], ['ID Monday', 'mondayPersonId', 'text']] as [string, string, string][]).map(([label, key, type]) => (
-            <div key={key}>
-              <label className="block text-xs text-gray-500 mb-1">{label}</label>
-              <input type={type} value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} className={inputCls} />
+          {isEditing && (
+            <div className="col-span-2 text-xs text-gray-500 -mb-1">
+              Editando <span className="font-medium text-gray-700">{form.email}</span>
             </div>
-          ))}
+          )}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Nome</label>
+            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">E-mail{isEditing && ' (não editável)'}</label>
+            <input type="email" value={form.email} disabled={isEditing} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={`${inputCls} ${isEditing ? 'bg-gray-100 text-gray-500' : ''}`} />
+          </div>
+          {!isEditing && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Senha</label>
+              <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} />
+            </div>
+          )}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Role</label>
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={inputCls}>
@@ -147,10 +193,16 @@ function UsersTab() {
               <option value="admin">Admin</option>
             </select>
           </div>
+          {([['Agente Opens (nome)', 'opensAgentName'], ['Ramal Opens', 'opensAgentPeer'], ['ID Opens (UUID)', 'opensUserId'], ['ID Monday', 'mondayPersonId']] as [string, string][]).map(([label, key]) => (
+            <div key={key}>
+              <label className="block text-xs text-gray-500 mb-1">{label}</label>
+              <input type="text" value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} className={inputCls} />
+            </div>
+          ))}
           <div className="col-span-2 flex justify-end gap-2 pt-2">
-            <button onClick={() => setShowForm(false)} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
-            <button onClick={() => create.mutate(form)} disabled={create.isPending} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              {create.isPending ? 'Criando...' : 'Criar'}
+            <button onClick={reset} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
+            <button onClick={submit} disabled={isPending} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {isPending ? 'Salvando...' : (isEditing ? 'Salvar' : 'Criar')}
             </button>
           </div>
         </div>
@@ -162,19 +214,25 @@ function UsersTab() {
             <div>
               <p className="text-sm font-medium text-gray-900">{u.name}</p>
               <p className="text-xs text-gray-400">{u.email} · {u.role}</p>
-              {(u.opensAgentName || u.opensAgentPeer) && (
+              {(u.opensAgentName || u.opensAgentPeer || u.opensUserId) && (
                 <p className="text-xs text-gray-400">
                   Opens: {u.opensAgentName || '—'}
                   {u.opensAgentPeer && <> · ramal {u.opensAgentPeer}</>}
+                  {u.opensUserId && <> · id {u.opensUserId}</>}
                 </p>
               )}
             </div>
-            <button
-              onClick={() => toggle.mutate({ id: u.id, active: !u.active })}
-              className={`text-xs px-3 py-1 rounded-full transition-colors ${u.active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}
-            >
-              {u.active ? 'Ativo' : 'Inativo'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => openEdit(u)} className="text-xs text-blue-600 hover:underline px-2 py-1">
+                Editar
+              </button>
+              <button
+                onClick={() => toggle.mutate({ id: u.id, active: !u.active })}
+                className={`text-xs px-3 py-1 rounded-full transition-colors ${u.active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}
+              >
+                {u.active ? 'Ativo' : 'Inativo'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
