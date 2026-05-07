@@ -109,11 +109,12 @@ function UsersTab() {
   const qc = useQueryClient()
   const { data: users = [] } = useQuery({ queryKey: ['admin-users'], queryFn: adminApi.listUsers })
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'vendedora', opensAgentName: '', mondayPersonId: '' })
+  const emptyForm = { name: '', email: '', password: '', role: 'vendedora', opensAgentName: '', opensAgentPeer: '', mondayPersonId: '' }
+  const [form, setForm] = useState(emptyForm)
 
   const create = useMutation({
     mutationFn: adminApi.createUser,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); setShowForm(false); setForm({ name: '', email: '', password: '', role: 'vendedora', opensAgentName: '', mondayPersonId: '' }) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); setShowForm(false); setForm(emptyForm) },
   })
   const toggle = useMutation({
     mutationFn: ({ id, active }: any) => adminApi.updateUser(id, { active }),
@@ -133,7 +134,7 @@ function UsersTab() {
 
       {showForm && (
         <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3">
-          {([['Nome', 'name', 'text'], ['E-mail', 'email', 'email'], ['Senha', 'password', 'password'], ['Agente Opens', 'opensAgentName', 'text'], ['ID Monday', 'mondayPersonId', 'text']] as [string, string, string][]).map(([label, key, type]) => (
+          {([['Nome', 'name', 'text'], ['E-mail', 'email', 'email'], ['Senha', 'password', 'password'], ['Agente Opens (nome)', 'opensAgentName', 'text'], ['Ramal Opens', 'opensAgentPeer', 'text'], ['ID Monday', 'mondayPersonId', 'text']] as [string, string, string][]).map(([label, key, type]) => (
             <div key={key}>
               <label className="block text-xs text-gray-500 mb-1">{label}</label>
               <input type={type} value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} className={inputCls} />
@@ -161,7 +162,12 @@ function UsersTab() {
             <div>
               <p className="text-sm font-medium text-gray-900">{u.name}</p>
               <p className="text-xs text-gray-400">{u.email} · {u.role}</p>
-              {u.opensAgentName && <p className="text-xs text-gray-400">Opens: {u.opensAgentName}</p>}
+              {(u.opensAgentName || u.opensAgentPeer) && (
+                <p className="text-xs text-gray-400">
+                  Opens: {u.opensAgentName || '—'}
+                  {u.opensAgentPeer && <> · ramal {u.opensAgentPeer}</>}
+                </p>
+              )}
             </div>
             <button
               onClick={() => toggle.mutate({ id: u.id, active: !u.active })}
