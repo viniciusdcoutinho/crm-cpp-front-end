@@ -13,10 +13,14 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   r => r,
   err => {
-    if (err.response?.status === 401) {
+    const status = err.response?.status
+    // 401 = sem auth, 403 = auth invalida/expirada (Spring Security 6)
+    if (status === 401 || status === 403) {
       localStorage.removeItem('crm_token')
       localStorage.removeItem('crm-auth')
-      window.location.href = '/login'
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
