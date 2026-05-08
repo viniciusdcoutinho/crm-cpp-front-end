@@ -1,11 +1,13 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { authApi } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const setUser = useAuthStore(s => s.setUser)
+  const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -17,6 +19,10 @@ export function LoginPage() {
     setError('')
     try {
       const data = await authApi.login(email, password)
+      // Limpa cache antes de setar o user para evitar vazar dados de
+      // sessao anterior (ex: admin logou, deslogou, vendedora loga e
+      // veria leads cacheados do admin).
+      queryClient.clear()
       setUser(data)
       navigate('/')
     } catch {
