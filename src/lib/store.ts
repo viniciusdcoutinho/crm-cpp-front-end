@@ -7,6 +7,7 @@ interface AuthUser {
   userId: string
   name: string
   email: string
+  telefone?: string | null
   role: string
   token: string
 }

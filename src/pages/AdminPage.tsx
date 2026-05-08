@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { performanceApi, adminApi, scriptsApi } from '../lib/api'
+import { SCRIPT_TOKENS } from '../lib/scripts'
 
 // ─── Performance Page ─────────────────────────────────────────
 export function PerformancePage() {
@@ -112,7 +113,7 @@ export function AdminPage() {
 function UsersTab() {
   const qc = useQueryClient()
   const { data: users = [] } = useQuery({ queryKey: ['admin-users'], queryFn: adminApi.listUsers })
-  const emptyForm = { name: '', email: '', password: '', role: 'vendedora', opensAgentName: '', opensAgentPeer: '', opensUserId: '', mondayPersonId: '', photoUrl: '' }
+  const emptyForm = { name: '', email: '', telefone: '', password: '', role: 'vendedora', opensAgentName: '', opensAgentPeer: '', opensUserId: '', mondayPersonId: '', photoUrl: '' }
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -136,7 +137,7 @@ function UsersTab() {
   const openEdit = (u: any) => {
     setEditingId(u.id)
     setForm({
-      name: u.name || '', email: u.email || '', password: '',
+      name: u.name || '', email: u.email || '', telefone: u.telefone || '', password: '',
       role: u.role || 'vendedora',
       opensAgentName: u.opensAgentName || '',
       opensAgentPeer: u.opensAgentPeer || '',
@@ -184,6 +185,10 @@ function UsersTab() {
           <div>
             <label className="block text-xs text-gray-500 mb-1">E-mail{isEditing && ' (não editável)'}</label>
             <input type="email" value={form.email} disabled={isEditing} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={`${inputCls} ${isEditing ? 'bg-gray-100 text-gray-500' : ''}`} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Telefone</label>
+            <input type="tel" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="Ex: (62) 99999-0000" className={inputCls} />
           </div>
           {!isEditing && (
             <div>
@@ -465,6 +470,24 @@ function ScriptsTab() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const contentRef = useRef<HTMLTextAreaElement>(null)
+
+  const insertToken = (token: string) => {
+    const ta = contentRef.current
+    const cur = form.content
+    if (!ta) {
+      setForm(f => ({ ...f, content: cur + token }))
+      return
+    }
+    const start = ta.selectionStart
+    const end   = ta.selectionEnd
+    const next  = cur.slice(0, start) + token + cur.slice(end)
+    setForm(f => ({ ...f, content: next }))
+    setTimeout(() => {
+      ta.focus()
+      ta.setSelectionRange(start + token.length, start + token.length)
+    }, 0)
+  }
 
   const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
 
@@ -537,12 +560,29 @@ function ScriptsTab() {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Conteúdo</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs text-gray-500">Conteúdo</label>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-gray-400 mr-1">Inserir:</span>
+                {SCRIPT_TOKENS.map(tok => (
+                  <button
+                    key={tok}
+                    type="button"
+                    onClick={() => insertToken(tok)}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    title={`Substituido pelos dados da vendedora logada quando ela visualiza o script`}
+                  >
+                    {tok}
+                  </button>
+                ))}
+              </div>
+            </div>
             <textarea
+              ref={contentRef}
               rows={5}
               value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              placeholder="Texto do script. Pode usar quebras de linha."
+              placeholder="Texto do script. Use [nome], [email] e [telefone] como variaveis."
               className={`${inputCls} resize-y`}
             />
           </div>

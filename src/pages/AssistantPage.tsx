@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User, FileText, Sparkles, Plus, Trash2, X, Pencil } from 'lucide-react'
 import { scriptsApi, assistantApi } from '../lib/api'
 import { useAuthStore } from '../lib/store'
+import { SCRIPT_TOKENS, substituteScriptVars } from '../lib/scripts'
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
@@ -32,8 +33,26 @@ function ScriptsPanel() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const emptyForm = { categoryId: '', title: '', content: '' }
   const [form, setForm] = useState(emptyForm)
+  const contentRef = useRef<HTMLTextAreaElement>(null)
 
   const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
+
+  const insertToken = (token: string) => {
+    const ta = contentRef.current
+    const cur = form.content
+    if (!ta) {
+      setForm(f => ({ ...f, content: cur + token }))
+      return
+    }
+    const start = ta.selectionStart
+    const end   = ta.selectionEnd
+    const next  = cur.slice(0, start) + token + cur.slice(end)
+    setForm(f => ({ ...f, content: next }))
+    setTimeout(() => {
+      ta.focus()
+      ta.setSelectionRange(start + token.length, start + token.length)
+    }, 0)
+  }
 
   const create = useMutation({
     mutationFn: scriptsApi.create,
@@ -58,7 +77,8 @@ function ScriptsPanel() {
   })
 
   const copy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text)
+    // Substitui [nome] [email] [telefone] pelos dados do usuario logado antes de copiar
+    navigator.clipboard.writeText(substituteScriptVars(text, currentUser))
     setCopied(id)
     setTimeout(() => setCopied(null), 2000)
   }
@@ -129,12 +149,29 @@ function ScriptsPanel() {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Conteúdo</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs text-gray-500">Conteúdo</label>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-gray-400 mr-1">Inserir:</span>
+                {SCRIPT_TOKENS.map(tok => (
+                  <button
+                    key={tok}
+                    type="button"
+                    onClick={() => insertToken(tok)}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    title="Substituido pelos seus dados ao copiar"
+                  >
+                    {tok}
+                  </button>
+                ))}
+              </div>
+            </div>
             <textarea
+              ref={contentRef}
               rows={4}
               value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              placeholder="Texto do script. Pode usar quebras de linha."
+              placeholder="Texto do script. Use [nome], [email] e [telefone] como variaveis."
               className={`${inputCls} resize-y`}
             />
           </div>
@@ -218,7 +255,9 @@ function ScriptsPanel() {
                                 )}
                               </div>
                             </div>
-                            <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{s.content}</p>
+                            <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                              {substituteScriptVars(s.content, currentUser)}
+                            </p>
                           </div>
                         )
                       })
