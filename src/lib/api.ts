@@ -50,7 +50,7 @@ export const leadsApi = {
 }
 
 export const statusesApi = {
-  list: () => api.get('/admin/statuses').then(r => r.data),
+  list: () => api.get('/api/statuses').then(r => r.data),
 }
 
 export const scriptsApi = {
