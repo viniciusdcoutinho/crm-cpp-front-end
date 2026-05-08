@@ -16,7 +16,7 @@ export function KanbanColumn({ status, leads }: Props) {
   const total = leads.reduce((acc, l) => acc + (Number(l.valorNegociacao) || 0), 0)
 
   return (
-    <div className="flex-shrink-0 w-72 flex flex-col">
+    <div className="flex-shrink-0 w-72 flex flex-col h-full min-h-0">
       {/* Header da coluna */}
       <div
         className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-3"
@@ -36,7 +36,7 @@ export function KanbanColumn({ status, leads }: Props) {
       {/* Drop zone */}
       <div
         ref={setNodeRef}
-        className={`space-y-2 min-h-32 rounded-xl p-2 transition-colors flex-1 ${
+        className={`space-y-2 min-h-32 rounded-xl p-2 transition-colors flex-1 min-h-0 overflow-y-auto ${
           isOver ? 'bg-blue-50 ring-2 ring-blue-200' : 'bg-gray-50/50'
         }`}
       >

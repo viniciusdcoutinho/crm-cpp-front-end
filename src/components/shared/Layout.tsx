@@ -25,8 +25,8 @@ export function Layout() {
   ]
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      <aside className="w-56 bg-white border-r border-gray-100 flex flex-col py-6 px-3 flex-shrink-0">
+    <div className="h-screen flex bg-gray-50 overflow-hidden">
+      <aside className="w-56 bg-white border-r border-gray-100 flex flex-col py-6 px-3 flex-shrink-0 overflow-y-auto">
         <div className="px-3 mb-8">
           <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center mb-3">
             <span className="text-white font-bold text-sm">CP</span>

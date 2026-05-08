@@ -35,7 +35,7 @@ export function KanbanBoard({ filters }: Props) {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4 h-full items-start">
+      <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-4 h-full items-stretch">
         {statuses.map((status: any) => (
           <KanbanColumn
             key={status.id}
