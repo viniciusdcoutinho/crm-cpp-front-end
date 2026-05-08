@@ -27,8 +27,17 @@ export const authApi = {
     api.post('/auth/login', { email, password }).then(r => r.data),
 }
 
+export type LeadFilters = {
+  userId?: string
+  statusId?: string
+  dateFrom?: string
+  dateTo?: string
+  motivoNaoVenda?: string
+  search?: string
+}
+
 export const leadsApi = {
-  list:    (params?: { userId?: string; statusId?: string }) =>
+  list:    (params?: LeadFilters) =>
     api.get('/api/leads', { params }).then(r => r.data),
   get:     (id: string) => api.get(`/api/leads/${id}`).then(r => r.data),
   create:  (data: any)  => api.post('/api/leads', data).then(r => r.data),

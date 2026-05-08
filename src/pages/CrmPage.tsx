@@ -5,10 +5,18 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { KanbanBoard } from '../components/kanban/KanbanBoard'
 import { LeadModal } from '../components/kanban/LeadModal'
-import { performanceApi, leadsApi } from '../lib/api'
+import {
+  FilterBar,
+  EMPTY_FILTERS,
+  filtersToApiParams,
+  type FilterState,
+} from '../components/kanban/FilterBar'
+import { performanceApi, leadsApi, type LeadFilters } from '../lib/api'
 
 export function CrmPage() {
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  const apiParams = filtersToApiParams(filters)
 
   const { data: slaAlerts = [] } = useQuery({
     queryKey: ['sla-alerts'],
@@ -18,7 +26,7 @@ export function CrmPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-medium text-gray-900">Leads</h1>
           {slaAlerts.length > 0 && (
@@ -44,15 +52,22 @@ export function CrmPage() {
         </div>
       </div>
 
+      <FilterBar filters={filters} onChange={setFilters} />
+
       <div className="flex-1 overflow-hidden">
-        {view === 'kanban' ? <KanbanBoard /> : <LeadListView />}
+        {view === 'kanban'
+          ? <KanbanBoard filters={apiParams} />
+          : <LeadListView filters={apiParams} />}
       </div>
     </div>
   )
 }
 
-function LeadListView() {
-  const { data: leads = [] } = useQuery({ queryKey: ['leads'], queryFn: () => leadsApi.list() })
+function LeadListView({ filters }: { filters: LeadFilters }) {
+  const { data: leads = [] } = useQuery({
+    queryKey: ['leads', filters],
+    queryFn: () => leadsApi.list(filters),
+  })
   const [selected, setSelected] = useState<any>(null)
 
   return (

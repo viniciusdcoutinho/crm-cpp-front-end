@@ -1,11 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { leadsApi, statusesApi } from '../../lib/api'
+import { leadsApi, statusesApi, type LeadFilters } from '../../lib/api'
 import { KanbanColumn } from './KanbanColumn'
 
-export function KanbanBoard() {
+interface Props { filters?: LeadFilters }
+
+export function KanbanBoard({ filters }: Props) {
   const qc = useQueryClient()
-  const { data: leads = [] }    = useQuery({ queryKey: ['leads'],    queryFn: () => leadsApi.list() })
+  const { data: leads = [] }    = useQuery({
+    queryKey: ['leads', filters],
+    queryFn: () => leadsApi.list(filters),
+  })
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
 
   const sensors = useSensors(
@@ -15,7 +20,7 @@ export function KanbanBoard() {
   const moveLead = useMutation({
     mutationFn: ({ id, statusId }: { id: string; statusId: string }) =>
       leadsApi.update(id, { statusId }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'], exact: false }),
   })
 
   const handleDragEnd = (event: DragEndEvent) => {
