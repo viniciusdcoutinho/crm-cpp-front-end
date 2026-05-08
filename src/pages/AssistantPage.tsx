@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User, FileText, Sparkles } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User, FileText, Sparkles, Plus, Trash2, X } from 'lucide-react'
 import { scriptsApi, assistantApi } from '../lib/api'
+import { useAuthStore } from '../lib/store'
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
@@ -21,16 +22,48 @@ export function AssistantPage() {
 }
 
 function ScriptsPanel() {
+  const qc = useQueryClient()
+  const currentUser = useAuthStore(s => s.user)
   const { data: categories = [] } = useQuery({ queryKey: ['script-categories'], queryFn: scriptsApi.categories })
   const { data: scripts = [] }    = useQuery({ queryKey: ['scripts'],           queryFn: scriptsApi.list })
   const [openCat, setOpenCat]     = useState<string | null>(null)
   const [copied, setCopied]       = useState<string | null>(null)
+  const [showForm, setShowForm]   = useState(false)
+  const emptyForm = { categoryId: '', title: '', content: '' }
+  const [form, setForm] = useState(emptyForm)
+
+  const create = useMutation({
+    mutationFn: scriptsApi.create,
+    onSuccess: (created: any) => {
+      qc.invalidateQueries({ queryKey: ['scripts'] })
+      setShowForm(false)
+      setForm(emptyForm)
+      // abre a categoria do script recem-criado
+      if (created?.category?.id) setOpenCat(created.category.id)
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => scriptsApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scripts'] }),
+  })
 
   const copy = (id: string, text: string) => {
     navigator.clipboard.writeText(text)
     setCopied(id)
     setTimeout(() => setCopied(null), 2000)
   }
+
+  const submit = () => {
+    if (!form.categoryId || !form.title.trim() || !form.content.trim()) return
+    create.mutate({ categoryId: form.categoryId, title: form.title.trim(), content: form.content.trim() })
+  }
+
+  const openCreate = () => {
+    setForm({ ...emptyForm, categoryId: categories[0]?.id || '' })
+    setShowForm(true)
+  }
+
+  const inputCls = 'w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-100'
 
   return (
     <section className="flex flex-col overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm">
@@ -42,10 +75,54 @@ function ScriptsPanel() {
           <h2 className="text-sm font-semibold text-gray-900">Scripts de atendimento</h2>
           <p className="text-xs text-gray-500">Textos prontos por categoria · clique pra copiar</p>
         </div>
-        <span className="text-xs font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded-full flex-shrink-0">
-          {scripts.length} script{scripts.length === 1 ? '' : 's'}
-        </span>
+        <button
+          onClick={() => showForm ? setShowForm(false) : openCreate()}
+          className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-full transition-colors flex-shrink-0"
+          title={showForm ? 'Cancelar' : 'Novo script pessoal'}
+        >
+          {showForm ? <><X size={12} /> Cancelar</> : <><Plus size={12} /> Novo</>}
+        </button>
       </header>
+
+      {showForm && (
+        <div className="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Categoria</label>
+              <select value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))} className={inputCls}>
+                <option value="">Selecione...</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Título</label>
+              <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Saudação WhatsApp" className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Conteúdo</label>
+            <textarea
+              rows={4}
+              value={form.content}
+              onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+              placeholder="Texto do script. Pode usar quebras de linha."
+              className={`${inputCls} resize-y`}
+            />
+          </div>
+          <div className="flex justify-between items-center pt-1">
+            <p className="text-xs text-gray-400">Visível só pra você</p>
+            <button
+              onClick={submit}
+              disabled={create.isPending || !form.categoryId || !form.title.trim() || !form.content.trim()}
+              className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {create.isPending ? 'Salvando...' : 'Criar'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {categories.length === 0 && (
@@ -72,28 +149,41 @@ function ScriptsPanel() {
                 <div className="divide-y divide-gray-50 bg-white">
                   {catScripts.length === 0
                     ? <p className="p-4 text-sm text-gray-400">Nenhum script nesta categoria.</p>
-                    : catScripts.map((s: any) => (
-                      <div key={s.id} className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <p className="text-sm font-medium text-gray-800">{s.title}</p>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {s.scope === 'global' && (
-                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">padrão</span>
-                            )}
-                            <button
-                              onClick={() => copy(s.id, s.content)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                              title="Copiar"
-                            >
-                              {copied === s.id
-                                ? <Check size={14} className="text-green-500" />
-                                : <Copy size={14} />}
-                            </button>
+                    : catScripts.map((s: any) => {
+                        const isMine = s.scope === 'personal' && s.createdBy?.id === currentUser?.userId
+                        return (
+                          <div key={s.id} className="p-4">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <p className="text-sm font-medium text-gray-800">{s.title}</p>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {s.scope === 'global'
+                                  ? <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">padrão</span>
+                                  : <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">pessoal</span>
+                                }
+                                <button
+                                  onClick={() => copy(s.id, s.content)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Copiar"
+                                >
+                                  {copied === s.id
+                                    ? <Check size={14} className="text-green-500" />
+                                    : <Copy size={14} />}
+                                </button>
+                                {isMine && (
+                                  <button
+                                    onClick={() => { if (confirm(`Excluir o script "${s.title}"?`)) remove.mutate(s.id) }}
+                                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                                    title="Excluir"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{s.content}</p>
                           </div>
-                        </div>
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{s.content}</p>
-                      </div>
-                    ))
+                        )
+                      })
                   }
                 </div>
               )}
