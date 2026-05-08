@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User, FileText, Sparkles, Plus, Trash2, X } from 'lucide-react'
+import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User, FileText, Sparkles, Plus, Trash2, X, Pencil } from 'lucide-react'
 import { scriptsApi, assistantApi } from '../lib/api'
 import { useAuthStore } from '../lib/store'
 
@@ -29,17 +29,27 @@ function ScriptsPanel() {
   const [openCat, setOpenCat]     = useState<string | null>(null)
   const [copied, setCopied]       = useState<string | null>(null)
   const [showForm, setShowForm]   = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const emptyForm = { categoryId: '', title: '', content: '' }
   const [form, setForm] = useState(emptyForm)
+
+  const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
 
   const create = useMutation({
     mutationFn: scriptsApi.create,
     onSuccess: (created: any) => {
       qc.invalidateQueries({ queryKey: ['scripts'] })
-      setShowForm(false)
-      setForm(emptyForm)
+      reset()
       // abre a categoria do script recem-criado
       if (created?.category?.id) setOpenCat(created.category.id)
+    },
+  })
+  const update = useMutation({
+    mutationFn: ({ id, ...data }: any) => scriptsApi.update(id, data),
+    onSuccess: (saved: any) => {
+      qc.invalidateQueries({ queryKey: ['scripts'] })
+      reset()
+      if (saved?.category?.id) setOpenCat(saved.category.id)
     },
   })
   const remove = useMutation({
@@ -55,11 +65,28 @@ function ScriptsPanel() {
 
   const submit = () => {
     if (!form.categoryId || !form.title.trim() || !form.content.trim()) return
-    create.mutate({ categoryId: form.categoryId, title: form.title.trim(), content: form.content.trim() })
+    const payload = {
+      categoryId: form.categoryId,
+      title: form.title.trim(),
+      content: form.content.trim(),
+    }
+    if (editingId) update.mutate({ id: editingId, ...payload })
+    else create.mutate(payload)
   }
 
   const openCreate = () => {
+    setEditingId(null)
     setForm({ ...emptyForm, categoryId: categories[0]?.id || '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (s: any) => {
+    setEditingId(s.id)
+    setForm({
+      categoryId: s.category?.id || '',
+      title: s.title || '',
+      content: s.content || '',
+    })
     setShowForm(true)
   }
 
@@ -76,7 +103,7 @@ function ScriptsPanel() {
           <p className="text-xs text-gray-500">Textos prontos por categoria · clique pra copiar</p>
         </div>
         <button
-          onClick={() => showForm ? setShowForm(false) : openCreate()}
+          onClick={() => showForm ? reset() : openCreate()}
           className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-full transition-colors flex-shrink-0"
           title={showForm ? 'Cancelar' : 'Novo script pessoal'}
         >
@@ -115,10 +142,12 @@ function ScriptsPanel() {
             <p className="text-xs text-gray-400">Visível só pra você</p>
             <button
               onClick={submit}
-              disabled={create.isPending || !form.categoryId || !form.title.trim() || !form.content.trim()}
+              disabled={create.isPending || update.isPending || !form.categoryId || !form.title.trim() || !form.content.trim()}
               className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {create.isPending ? 'Salvando...' : 'Criar'}
+              {(create.isPending || update.isPending)
+                ? 'Salvando...'
+                : (editingId ? 'Salvar' : 'Criar')}
             </button>
           </div>
         </div>
@@ -170,13 +199,22 @@ function ScriptsPanel() {
                                     : <Copy size={14} />}
                                 </button>
                                 {isMine && (
-                                  <button
-                                    onClick={() => { if (confirm(`Excluir o script "${s.title}"?`)) remove.mutate(s.id) }}
-                                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => openEdit(s)}
+                                      className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Editar"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => { if (confirm(`Excluir o script "${s.title}"?`)) remove.mutate(s.id) }}
+                                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                                      title="Excluir"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>

@@ -57,6 +57,7 @@ export const scriptsApi = {
   list:       () => api.get('/api/scripts').then(r => r.data),
   categories: () => api.get('/api/scripts/categories').then(r => r.data),
   create:     (data: any) => api.post('/api/scripts', data).then(r => r.data),
+  update:     (id: string, data: any) => api.patch(`/api/scripts/${id}`, data).then(r => r.data),
   delete:     (id: string) => api.delete(`/api/scripts/${id}`),
 }
 
