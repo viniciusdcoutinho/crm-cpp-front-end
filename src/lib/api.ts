@@ -58,6 +58,10 @@ export const performanceApi = {
   slaAlerts:  () => api.get('/api/performance/sla-alerts').then(r => r.data),
 }
 
+export const lossReasonsApi = {
+  list: () => api.get('/api/loss-reasons').then(r => r.data),
+}
+
 export const adminApi = {
   listUsers:    () => api.get('/admin/users').then(r => r.data),
   createUser:   (data: any) => api.post('/admin/users', data).then(r => r.data),
@@ -65,6 +69,11 @@ export const adminApi = {
   listStatuses: () => api.get('/admin/statuses').then(r => r.data),
   createStatus: (data: any) => api.post('/admin/statuses', data).then(r => r.data),
   updateStatus: (id: string, data: any) => api.patch(`/admin/statuses/${id}`, data).then(r => r.data),
+  deleteStatus: (id: string) => api.delete(`/admin/statuses/${id}`),
+  listLossReasons:   () => api.get('/admin/loss-reasons').then(r => r.data),
+  createLossReason:  (data: any) => api.post('/admin/loss-reasons', data).then(r => r.data),
+  updateLossReason:  (id: string, data: any) => api.patch(`/admin/loss-reasons/${id}`, data).then(r => r.data),
+  deleteLossReason:  (id: string) => api.delete(`/admin/loss-reasons/${id}`),
   listSla:      () => api.get('/admin/sla').then(r => r.data),
   updateSla:    (id: string, data: any) => api.patch(`/admin/sla/${id}`, data).then(r => r.data),
   webhookLogs:  (source: string) =>

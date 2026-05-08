@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X, Star, Phone, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { leadsApi, statusesApi } from '../../lib/api'
+import { leadsApi, statusesApi, lossReasonsApi } from '../../lib/api'
 
 interface Props { lead: any; onClose: () => void }
 
@@ -25,10 +25,14 @@ export function LeadModal({ lead, onClose }: Props) {
   })
 
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
+  const { data: lossReasons = [] } = useQuery({ queryKey: ['loss-reasons'], queryFn: lossReasonsApi.list })
   const { data: history = [] }  = useQuery({
     queryKey: ['history', lead.id],
     queryFn:  () => leadsApi.history(lead.id),
   })
+
+  const currentStatus = statuses.find((s: any) => s.id === form.statusId)
+  const showLossReason = currentStatus?.isFinal && currentStatus?.label?.toLowerCase() !== 'fechado'
 
   const update = useMutation({
     mutationFn: () => leadsApi.update(lead.id, {
@@ -162,11 +166,21 @@ export function LeadModal({ lead, onClose }: Props) {
             />
           </div>
 
-          {/* Motivo não venda */}
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Motivo de não venda</label>
-            <input type="text" value={form.motivoNaoVenda} onChange={set('motivoNaoVenda')} className={inputCls} />
-          </div>
+          {/* Motivo não venda — só em status final que não seja Fechado */}
+          {showLossReason && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Motivo de não venda</label>
+              <select value={form.motivoNaoVenda} onChange={set('motivoNaoVenda')} className={inputCls}>
+                <option value="">Selecione um motivo</option>
+                {lossReasons.map((r: any) => (
+                  <option key={r.id} value={r.label}>{r.label}</option>
+                ))}
+                {form.motivoNaoVenda && !lossReasons.some((r: any) => r.label === form.motivoNaoVenda) && (
+                  <option value={form.motivoNaoVenda}>{form.motivoNaoVenda} (legado)</option>
+                )}
+              </select>
+            </div>
+          )}
 
           {/* Histórico */}
           {history.length > 0 && (
