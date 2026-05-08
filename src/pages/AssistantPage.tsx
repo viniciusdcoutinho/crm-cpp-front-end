@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User } from 'lucide-react'
+import { Copy, Check, ChevronDown, ChevronUp, Send, Bot, User, FileText, Sparkles } from 'lucide-react'
 import { scriptsApi, assistantApi } from '../lib/api'
 
 interface Message { role: 'user' | 'assistant'; content: string }
@@ -8,8 +8,11 @@ interface Message { role: 'user' | 'assistant'; content: string }
 export function AssistantPage() {
   return (
     <div className="h-full flex flex-col">
-      <h1 className="text-xl font-medium text-gray-900 mb-6">Assistente</h1>
-      <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
+      <div className="mb-6">
+        <h1 className="text-xl font-medium text-gray-900">Assistente</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Scripts prontos e assistente de IA pra agilizar seus atendimentos</p>
+      </div>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-hidden min-h-0">
         <ScriptsPanel />
         <ChatPanel />
       </div>
@@ -30,9 +33,24 @@ function ScriptsPanel() {
   }
 
   return (
-    <div className="w-1/2 flex flex-col overflow-hidden">
-      <p className="text-sm font-medium text-gray-700 mb-3">Scripts de atendimento</p>
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+    <section className="flex flex-col overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm">
+      <header className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+        <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+          <FileText size={18} className="text-amber-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-gray-900">Scripts de atendimento</h2>
+          <p className="text-xs text-gray-500">Textos prontos por categoria · clique pra copiar</p>
+        </div>
+        <span className="text-xs font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded-full flex-shrink-0">
+          {scripts.length} script{scripts.length === 1 ? '' : 's'}
+        </span>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        {categories.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-8">Nenhuma categoria de script ainda.</p>
+        )}
         {categories.map((cat: any) => {
           const catScripts = scripts.filter((s: any) => s.category?.id === cat.id)
           const isOpen = openCat === cat.id
@@ -51,7 +69,7 @@ function ScriptsPanel() {
                 </div>
               </button>
               {isOpen && (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-gray-50 bg-white">
                   {catScripts.length === 0
                     ? <p className="p-4 text-sm text-gray-400">Nenhum script nesta categoria.</p>
                     : catScripts.map((s: any) => (
@@ -83,7 +101,7 @@ function ScriptsPanel() {
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -123,21 +141,35 @@ function ChatPanel() {
   ]
 
   return (
-    <div className="w-1/2 flex flex-col overflow-hidden">
-      <p className="text-sm font-medium text-gray-700 mb-3">Assistente pessoal</p>
+    <section className="flex flex-col overflow-hidden bg-gradient-to-br from-blue-50/40 to-white rounded-2xl border border-blue-100 shadow-sm">
+      <header className="flex items-center gap-3 px-5 py-4 border-b border-blue-100/60 bg-white/40">
+        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <Sparkles size={18} className="text-white" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-gray-900">Assistente IA</h2>
+          <p className="text-xs text-gray-500">Pergunte sobre seus leads, produtos ou abordagens</p>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          online
+        </span>
+      </header>
 
-      <div className="flex-1 overflow-y-auto space-y-4 mb-3">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              msg.role === 'assistant' ? 'bg-blue-50' : 'bg-gray-100'
+              msg.role === 'assistant' ? 'bg-blue-100' : 'bg-gray-100'
             }`}>
               {msg.role === 'assistant'
-                ? <Bot size={16} className="text-blue-500" />
+                ? <Bot size={16} className="text-blue-600" />
                 : <User size={16} className="text-gray-500" />}
             </div>
-            <div className={`max-w-xs rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-              msg.role === 'assistant' ? 'bg-gray-50 text-gray-800' : 'bg-blue-600 text-white'
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              msg.role === 'assistant'
+                ? 'bg-white text-gray-800 border border-gray-100'
+                : 'bg-blue-600 text-white'
             }`}>
               {msg.content}
             </div>
@@ -146,12 +178,12 @@ function ChatPanel() {
 
         {loading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-              <Bot size={16} className="text-blue-500" />
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <Bot size={16} className="text-blue-600" />
             </div>
-            <div className="bg-gray-50 rounded-2xl px-4 py-3 flex gap-1 items-center">
+            <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 flex gap-1 items-center">
               {[0, 1, 2].map(i => (
-                <div key={i} className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                <div key={i} className="w-2 h-2 bg-blue-300 rounded-full animate-bounce"
                   style={{ animationDelay: `${i * 0.15}s` }} />
               ))}
             </div>
@@ -160,34 +192,36 @@ function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2 flex-wrap mb-3">
-        {suggestions.map(s => (
-          <button
-            key={s}
-            onClick={() => setInput(s)}
-            className="text-xs border border-gray-200 rounded-full px-3 py-1.5 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      <div className="border-t border-blue-100/60 px-5 py-4 bg-white/60 space-y-3">
+        <div className="flex gap-2 flex-wrap">
+          {suggestions.map(s => (
+            <button
+              key={s}
+              onClick={() => setInput(s)}
+              className="text-xs border border-blue-200 bg-white rounded-full px-3 py-1.5 text-blue-700 hover:bg-blue-50 transition-colors"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
 
-      <div className="flex gap-2">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-          placeholder="Pergunte sobre seus leads, produtos..."
-          className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-        />
-        <button
-          onClick={send}
-          disabled={!input.trim() || loading}
-          className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 disabled:opacity-40 transition-colors"
-        >
-          <Send size={16} />
-        </button>
+        <div className="flex gap-2">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+            placeholder="Pergunte sobre seus leads, produtos..."
+            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+          />
+          <button
+            onClick={send}
+            disabled={!input.trim() || loading}
+            className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 disabled:opacity-40 transition-colors flex-shrink-0"
+          >
+            <Send size={16} />
+          </button>
+        </div>
       </div>
-    </div>
+    </section>
   )
 }
