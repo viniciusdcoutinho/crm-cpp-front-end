@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
-import { lossReasonsApi, type LeadFilters } from '../../lib/api'
+import { lossReasonsApi, adminApi, type LeadFilters } from '../../lib/api'
+import { useAuthStore } from '../../lib/store'
 
 export type FilterPreset = 'all' | 'current_month' | 'last_month' | 'current_year' | 'custom'
 
@@ -10,6 +11,7 @@ export type FilterState = {
   dateTo: string
   motivoNaoVenda: string
   search: string
+  userId: string
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -18,6 +20,7 @@ export const EMPTY_FILTERS: FilterState = {
   dateTo: '',
   motivoNaoVenda: '',
   search: '',
+  userId: '',
 }
 
 const ymd = (d: Date) =>
@@ -48,6 +51,7 @@ export function presetToRange(preset: FilterPreset): { dateFrom: string; dateTo:
 
 export function filtersToApiParams(f: FilterState): LeadFilters {
   return {
+    userId:         f.userId || undefined,
     dateFrom:       f.dateFrom || undefined,
     dateTo:         f.dateTo   || undefined,
     motivoNaoVenda: f.motivoNaoVenda || undefined,
@@ -56,7 +60,7 @@ export function filtersToApiParams(f: FilterState): LeadFilters {
 }
 
 export function hasActiveFilters(f: FilterState): boolean {
-  return f.preset !== 'all' || !!f.search.trim() || !!f.motivoNaoVenda
+  return f.preset !== 'all' || !!f.search.trim() || !!f.motivoNaoVenda || !!f.userId
 }
 
 interface Props {
@@ -65,7 +69,16 @@ interface Props {
 }
 
 export function FilterBar({ filters, onChange }: Props) {
+  const currentUser = useAuthStore(s => s.user)
+  const isAdmin = currentUser?.role === 'admin'
+
   const { data: reasons = [] } = useQuery({ queryKey: ['loss-reasons-public'], queryFn: lossReasonsApi.list })
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: adminApi.listUsers,
+    enabled: isAdmin,
+  })
+  const vendedoras = allUsers.filter((u: any) => u.role === 'vendedora' && u.active)
 
   const presets: { id: FilterPreset; label: string }[] = [
     { id: 'all',           label: 'Tudo'         },
@@ -136,6 +149,20 @@ export function FilterBar({ filters, onChange }: Props) {
           className={`${inputCls} pl-8 w-full`}
         />
       </div>
+
+      {/* Vendedora — só admin */}
+      {isAdmin && (
+        <select
+          value={filters.userId}
+          onChange={e => onChange({ ...filters, userId: e.target.value })}
+          className={inputCls}
+        >
+          <option value="">Todas vendedoras</option>
+          {vendedoras.map((u: any) => (
+            <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+      )}
 
       {/* Loss reason */}
       <select
