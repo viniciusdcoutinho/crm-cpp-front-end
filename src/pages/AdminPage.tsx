@@ -680,42 +680,208 @@ function SlaTab() {
   )
 }
 
+type LogPreset = 'today' | 'yesterday' | 'week' | 'all' | 'custom'
+
+// datetime-local usa formato YYYY-MM-DDTHH:mm sem timezone. ISO precisa de Z.
+const toIso = (local: string) => local ? new Date(local).toISOString() : ''
+const localOf = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function presetRange(preset: LogPreset): { from: string; to: string } {
+  const now = new Date()
+  if (preset === 'today') {
+    const start = new Date(now); start.setHours(0, 0, 0, 0)
+    return { from: localOf(start), to: localOf(now) }
+  }
+  if (preset === 'yesterday') {
+    const start = new Date(now); start.setDate(now.getDate() - 1); start.setHours(0, 0, 0, 0)
+    const end = new Date(start); end.setHours(23, 59, 59, 999)
+    return { from: localOf(start), to: localOf(end) }
+  }
+  if (preset === 'week') {
+    const start = new Date(now); start.setDate(now.getDate() - 7); start.setHours(0, 0, 0, 0)
+    return { from: localOf(start), to: localOf(now) }
+  }
+  return { from: '', to: '' }
+}
+
 function LogsTab() {
-  const [source, setSource] = useState('opens')
-  const { data: logs = [] } = useQuery({
-    queryKey: ['webhook-logs', source],
-    queryFn:  () => adminApi.webhookLogs(source),
+  const [source, setSource]     = useState('opens')
+  const [preset, setPreset]     = useState<LogPreset>('today')
+  const [from, setFrom]         = useState(presetRange('today').from)
+  const [to, setTo]             = useState(presetRange('today').to)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch]     = useState('')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [copied, setCopied]     = useState<string | null>(null)
+
+  const setPresetAndRange = (p: LogPreset) => {
+    setPreset(p)
+    if (p !== 'custom') {
+      const r = presetRange(p)
+      setFrom(r.from); setTo(r.to)
+    }
+  }
+
+  const { data: logs = [], isFetching } = useQuery({
+    queryKey: ['webhook-logs', source, from, to, search],
+    queryFn: () => adminApi.webhookLogs({
+      source,
+      dateFrom: toIso(from),
+      dateTo:   toIso(to),
+      search,
+    }),
   })
 
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const copyPayload = (id: string, payload: string) => {
+    const formatted = formatPayload(payload)
+    navigator.clipboard.writeText(formatted)
+    setCopied(id)
+    setTimeout(() => setCopied(null), 1500)
+  }
+
+  const inputCls = 'text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100'
+
   return (
-    <div>
-      <div className="flex gap-2 mb-4">
-        {['opens', 'monday'].map(s => (
-          <button key={s} onClick={() => setSource(s)}
-            className={`px-4 py-1.5 rounded-full text-sm border transition-colors ${
-              source === s ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}>
-            {s}
-          </button>
-        ))}
-      </div>
-      <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-        {logs.map((log: any) => (
-          <div key={log.id} className="px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                log.status === 'processed' ? 'bg-green-50 text-green-600' :
-                log.status === 'error'     ? 'bg-red-50 text-red-600' :
-                'bg-gray-100 text-gray-500'
-              }`}>{log.status}</span>
-              <span className="text-xs font-medium text-gray-700">{log.eventType}</span>
-              <span className="text-xs text-gray-400 ml-auto">{log.receivedAt}</span>
-            </div>
-            {log.errorMsg && <p className="text-xs text-red-500">{log.errorMsg}</p>}
+    <div className="space-y-4">
+      {/* Filtros */}
+      <div className="bg-white rounded-xl border border-gray-100 p-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Source */}
+          <div className="flex gap-1">
+            {['opens', 'monday'].map(s => (
+              <button key={s} onClick={() => setSource(s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  source === s ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}>
+                {s}
+              </button>
+            ))}
           </div>
-        ))}
-        {logs.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">Nenhum log.</p>}
+          <div className="w-px h-6 bg-gray-200" />
+          {/* Period preset */}
+          {([
+            { id: 'today',     label: 'Hoje' },
+            { id: 'yesterday', label: 'Ontem' },
+            { id: 'week',      label: 'Última semana' },
+            { id: 'all',       label: 'Todos' },
+            { id: 'custom',    label: 'Personalizado' },
+          ] as { id: LogPreset; label: string }[]).map(p => (
+            <button key={p.id} onClick={() => setPresetAndRange(p.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                preset === p.id ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {preset === 'custom' && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs text-gray-500">De</label>
+            <input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} className={inputCls} />
+            <label className="text-xs text-gray-500">até</label>
+            <input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} className={inputCls} />
+          </div>
+        )}
+        {/* Search */}
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && setSearch(searchInput.trim())}
+            placeholder='Pesquisar no payload (ex: "agentPeer", "62999", id...)'
+            className={`${inputCls} flex-1`}
+          />
+          <button
+            onClick={() => setSearch(searchInput.trim())}
+            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700"
+          >
+            Buscar
+          </button>
+          {search && (
+            <button
+              onClick={() => { setSearchInput(''); setSearch('') }}
+              className="text-xs text-gray-500 hover:text-gray-700 px-2"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+        {isFetching && logs.length === 0 && (
+          <p className="text-center text-gray-400 py-8 text-sm">Carregando...</p>
+        )}
+        {!isFetching && logs.length === 0 && (
+          <p className="text-center text-gray-400 py-8 text-sm">Nenhum log encontrado nesse filtro.</p>
+        )}
+        {logs.map((log: any) => {
+          const isExpanded = expanded.has(log.id)
+          return (
+            <div key={log.id} className="px-4 py-3">
+              <button
+                onClick={() => toggleExpand(log.id)}
+                className="w-full text-left flex items-center gap-2 hover:bg-gray-50 -mx-2 px-2 py-1 rounded-lg"
+              >
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  log.status === 'processed' ? 'bg-green-50 text-green-600' :
+                  log.status === 'error'     ? 'bg-red-50 text-red-600' :
+                  'bg-gray-100 text-gray-500'
+                }`}>{log.status}</span>
+                <span className="text-xs font-medium text-gray-700">{log.eventType}</span>
+                <span className="text-xs text-gray-400 ml-auto whitespace-nowrap">
+                  {log.receivedAt && new Date(log.receivedAt).toLocaleString('pt-BR')}
+                </span>
+                <span className="text-xs text-blue-600">{isExpanded ? '−' : '+'}</span>
+              </button>
+
+              {log.errorMsg && (
+                <p className="text-xs text-red-500 mt-1 ml-1">{log.errorMsg}</p>
+              )}
+
+              {isExpanded && (
+                <div className="mt-3 ml-1 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Payload</p>
+                    <button
+                      onClick={() => copyPayload(log.id, log.payload)}
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      {copied === log.id ? '✓ copiado' : 'Copiar JSON'}
+                    </button>
+                  </div>
+                  <pre className="text-xs bg-gray-900 text-gray-100 rounded-lg p-3 overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap break-all">
+                    {formatPayload(log.payload)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
+}
+
+function formatPayload(payload: any): string {
+  if (payload == null) return '(vazio)'
+  if (typeof payload === 'object') return JSON.stringify(payload, null, 2)
+  if (typeof payload === 'string') {
+    try { return JSON.stringify(JSON.parse(payload), null, 2) }
+    catch { return payload }
+  }
+  return String(payload)
 }

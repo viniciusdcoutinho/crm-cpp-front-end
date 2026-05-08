@@ -94,6 +94,6 @@ export const adminApi = {
   deleteGlobalScript:  (id: string) => api.delete(`/admin/scripts/${id}`),
   listSla:      () => api.get('/admin/sla').then(r => r.data),
   updateSla:    (id: string, data: any) => api.patch(`/admin/sla/${id}`, data).then(r => r.data),
-  webhookLogs:  (source: string) =>
-    api.get('/admin/webhook-logs', { params: { source } }).then(r => r.data),
+  webhookLogs:  (params: { source: string; dateFrom?: string; dateTo?: string; search?: string }) =>
+    api.get('/admin/webhook-logs', { params }).then(r => r.data),
 }
