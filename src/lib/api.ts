@@ -87,6 +87,10 @@ export const adminApi = {
   createLossReason:  (data: any) => api.post('/admin/loss-reasons', data).then(r => r.data),
   updateLossReason:  (id: string, data: any) => api.patch(`/admin/loss-reasons/${id}`, data).then(r => r.data),
   deleteLossReason:  (id: string) => api.delete(`/admin/loss-reasons/${id}`),
+  listGlobalScripts:   () => api.get('/admin/scripts').then(r => r.data),
+  createGlobalScript:  (data: any) => api.post('/admin/scripts', data).then(r => r.data),
+  updateGlobalScript:  (id: string, data: any) => api.patch(`/admin/scripts/${id}`, data).then(r => r.data),
+  deleteGlobalScript:  (id: string) => api.delete(`/admin/scripts/${id}`),
   listSla:      () => api.get('/admin/sla').then(r => r.data),
   updateSla:    (id: string, data: any) => api.patch(`/admin/sla/${id}`, data).then(r => r.data),
   webhookLogs:  (source: string) =>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { performanceApi, adminApi } from '../lib/api'
+import { performanceApi, adminApi, scriptsApi } from '../lib/api'
 
 // ─── Performance Page ─────────────────────────────────────────
 export function PerformancePage() {
@@ -71,11 +71,12 @@ export function PerformancePage() {
 
 // ─── Admin Page ───────────────────────────────────────────────
 export function AdminPage() {
-  const [tab, setTab] = useState<'users' | 'statuses' | 'reasons' | 'sla' | 'logs'>('users')
+  const [tab, setTab] = useState<'users' | 'statuses' | 'reasons' | 'scripts' | 'sla' | 'logs'>('users')
   const tabs = [
     { id: 'users',    label: 'Usuários' },
     { id: 'statuses', label: 'Status do kanban' },
     { id: 'reasons',  label: 'Motivos de não venda' },
+    { id: 'scripts',  label: 'Scripts padrão' },
     { id: 'sla',      label: 'Config SLA' },
     { id: 'logs',     label: 'Webhook logs' },
   ] as const
@@ -101,6 +102,7 @@ export function AdminPage() {
       {tab === 'users'    && <UsersTab />}
       {tab === 'statuses' && <StatusesTab />}
       {tab === 'reasons'  && <LossReasonsTab />}
+      {tab === 'scripts'  && <ScriptsTab />}
       {tab === 'sla'      && <SlaTab />}
       {tab === 'logs'     && <LogsTab />}
     </div>
@@ -450,6 +452,161 @@ function LossReasonsTab() {
           </div>
         ))}
         {reasons.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">Nenhum motivo cadastrado.</p>}
+      </div>
+    </div>
+  )
+}
+
+function ScriptsTab() {
+  const qc = useQueryClient()
+  const { data: scripts = [] } = useQuery({ queryKey: ['admin-global-scripts'], queryFn: adminApi.listGlobalScripts })
+  const { data: categories = [] } = useQuery({ queryKey: ['script-categories'], queryFn: scriptsApi.categories })
+  const emptyForm = { categoryId: '', title: '', content: '', active: true }
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState(emptyForm)
+
+  const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
+
+  const create = useMutation({
+    mutationFn: adminApi.createGlobalScript,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-global-scripts'] }); qc.invalidateQueries({ queryKey: ['scripts'] }); reset() },
+  })
+  const update = useMutation({
+    mutationFn: ({ id, ...data }: any) => adminApi.updateGlobalScript(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-global-scripts'] }); qc.invalidateQueries({ queryKey: ['scripts'] }); reset() },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => adminApi.deleteGlobalScript(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-global-scripts'] }); qc.invalidateQueries({ queryKey: ['scripts'] }) },
+  })
+  const toggle = useMutation({
+    mutationFn: ({ id, active }: any) => adminApi.updateGlobalScript(id, { active }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-global-scripts'] }); qc.invalidateQueries({ queryKey: ['scripts'] }) },
+  })
+
+  const openCreate = () => { setEditingId(null); setForm({ ...emptyForm, categoryId: categories[0]?.id || '' }); setShowForm(true) }
+  const openEdit = (s: any) => {
+    setEditingId(s.id)
+    setForm({ categoryId: s.category?.id || '', title: s.title || '', content: s.content || '', active: !!s.active })
+    setShowForm(true)
+  }
+
+  const submit = () => {
+    if (!form.categoryId || !form.title.trim() || !form.content.trim()) return
+    if (editingId) update.mutate({ id: editingId, ...form })
+    else create.mutate({ categoryId: form.categoryId, title: form.title, content: form.content })
+  }
+
+  const isEditing = editingId !== null
+  const isPending = create.isPending || update.isPending
+  const inputCls = 'w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-100'
+
+  // Agrupar por categoria
+  const byCategory = categories.map((c: any) => ({
+    cat: c,
+    items: scripts.filter((s: any) => s.category?.id === c.id),
+  }))
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-sm text-gray-600">
+          {scripts.length} script{scripts.length === 1 ? '' : 's'} padrão · visíveis para todas as vendedoras
+        </p>
+        <button onClick={() => showForm ? reset() : openCreate()} className="text-sm text-blue-600 hover:underline whitespace-nowrap">
+          {showForm ? 'Cancelar' : '+ Novo script'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-gray-50 rounded-xl p-4 grid gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Categoria</label>
+              <select value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))} className={inputCls}>
+                <option value="">Selecione...</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Título</label>
+              <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Primeira mensagem WhatsApp" className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Conteúdo</label>
+            <textarea
+              rows={5}
+              value={form.content}
+              onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+              placeholder="Texto do script. Pode usar quebras de linha."
+              className={`${inputCls} resize-y`}
+            />
+          </div>
+          {isEditing && (
+            <div className="flex items-center gap-2">
+              <input id="script-active" type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} />
+              <label htmlFor="script-active" className="text-sm text-gray-700">Ativo (aparece para as vendedoras)</label>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={reset} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
+            <button
+              onClick={submit}
+              disabled={isPending || !form.categoryId || !form.title.trim() || !form.content.trim()}
+              className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isPending ? 'Salvando...' : (isEditing ? 'Salvar' : 'Criar')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {byCategory.map(({ cat, items }: any) => (
+          <div key={cat.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700">{cat.label}</p>
+              <span className="text-xs text-gray-400">{items.length}</span>
+            </div>
+            {items.length === 0 ? (
+              <p className="px-4 py-4 text-sm text-gray-400">Nenhum script padrão nesta categoria.</p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {items.map((s: any) => (
+                  <div key={s.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium ${s.active ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                          {s.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap line-clamp-2">{s.content}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => toggle.mutate({ id: s.id, active: !s.active })}
+                          className={`text-xs px-3 py-1 rounded-full transition-colors ${s.active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}
+                        >
+                          {s.active ? 'Ativo' : 'Inativo'}
+                        </button>
+                        <button onClick={() => openEdit(s)} className="text-xs text-blue-600 hover:underline px-2 py-1">Editar</button>
+                        <button
+                          onClick={() => { if (confirm(`Excluir o script "${s.title}"?`)) remove.mutate(s.id) }}
+                          className="text-xs text-red-500 hover:underline px-2 py-1"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )
