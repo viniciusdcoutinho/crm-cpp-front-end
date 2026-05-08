@@ -20,7 +20,29 @@ export function KanbanBoard({ filters }: Props) {
   const moveLead = useMutation({
     mutationFn: ({ id, statusId }: { id: string; statusId: string }) =>
       leadsApi.update(id, { statusId }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'], exact: false }),
+    onMutate: async ({ id, statusId }) => {
+      // Optimistic update: move o lead no cache imediatamente, antes do
+      // servidor confirmar. UI reage instantaneo, mutation roda em paralelo.
+      await qc.cancelQueries({ queryKey: ['leads'] })
+      const newStatus = statuses.find((s: any) => s.id === statusId)
+      // Snapshot de todas as queries 'leads' (filtros diferentes geram keys diferentes).
+      const previous = qc.getQueriesData<any[]>({ queryKey: ['leads'] })
+      qc.setQueriesData<any[]>({ queryKey: ['leads'] }, (old) => {
+        if (!old) return old
+        return old.map(l => l.id === id ? { ...l, status: newStatus } : l)
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      // Rollback se a request falhou.
+      if (ctx?.previous) {
+        ctx.previous.forEach(([key, data]) => qc.setQueryData(key, data))
+      }
+    },
+    onSettled: () => {
+      // Sincroniza com servidor (pega campos atualizados como updated_at e history).
+      qc.invalidateQueries({ queryKey: ['leads'] })
+    },
   })
 
   const handleDragEnd = (event: DragEndEvent) => {
