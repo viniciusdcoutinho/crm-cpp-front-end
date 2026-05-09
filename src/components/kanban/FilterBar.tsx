@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react'
 import { lossReasonsApi, adminApi, type LeadFilters } from '../../lib/api'
 import { useAuthStore } from '../../lib/store'
 
-export type FilterPreset = 'all' | 'current_month' | 'last_month' | 'current_year' | 'custom'
+export type FilterPreset = 'all' | 'today' | 'yesterday' | 'current_month' | 'last_month' | 'custom'
 
 export type FilterState = {
   preset: FilterPreset
@@ -28,6 +28,15 @@ const ymd = (d: Date) =>
 
 export function presetToRange(preset: FilterPreset): { dateFrom: string; dateTo: string } {
   const today = new Date()
+  if (preset === 'today') {
+    const t = ymd(today)
+    return { dateFrom: t, dateTo: t }
+  }
+  if (preset === 'yesterday') {
+    const y = new Date(today); y.setDate(today.getDate() - 1)
+    const ys = ymd(y)
+    return { dateFrom: ys, dateTo: ys }
+  }
   if (preset === 'current_month') {
     return {
       dateFrom: ymd(new Date(today.getFullYear(), today.getMonth(), 1)),
@@ -38,12 +47,6 @@ export function presetToRange(preset: FilterPreset): { dateFrom: string; dateTo:
     return {
       dateFrom: ymd(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
       dateTo:   ymd(new Date(today.getFullYear(), today.getMonth(), 0)),
-    }
-  }
-  if (preset === 'current_year') {
-    return {
-      dateFrom: ymd(new Date(today.getFullYear(), 0, 1)),
-      dateTo:   ymd(new Date(today.getFullYear(), 11, 31)),
     }
   }
   return { dateFrom: '', dateTo: '' }
@@ -82,9 +85,10 @@ export function FilterBar({ filters, onChange }: Props) {
 
   const presets: { id: FilterPreset; label: string }[] = [
     { id: 'all',           label: 'Tudo'         },
+    { id: 'today',         label: 'Hoje'         },
+    { id: 'yesterday',     label: 'Ontem'        },
     { id: 'current_month', label: 'Este mês'     },
     { id: 'last_month',    label: 'Mês passado'  },
-    { id: 'current_year',  label: 'Este ano'     },
     { id: 'custom',        label: 'Personalizado'},
   ]
 

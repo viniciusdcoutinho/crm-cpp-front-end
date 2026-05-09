@@ -96,6 +96,12 @@ export function LeadCard({ lead }: Props) {
           </div>
         )}
 
+        {lead.telefone && (
+          <p className="text-[11px] text-gray-500 mt-2 font-mono tracking-tight">
+            {lead.telefone}
+          </p>
+        )}
+
         {/* Footer: vendedora + canal + tempo + sla */}
         <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-100">
           <div className="flex items-center gap-1.5 min-w-0">
