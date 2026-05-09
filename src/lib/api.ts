@@ -47,6 +47,7 @@ export const leadsApi = {
   create:  (data: any)  => api.post('/api/leads', data).then(r => r.data),
   update:  (id: string, data: any) => api.patch(`/api/leads/${id}`, data).then(r => r.data),
   history: (id: string) => api.get(`/api/leads/${id}/history`).then(r => r.data),
+  interactions: (id: string) => api.get(`/api/leads/${id}/interactions`).then(r => r.data),
 }
 
 export const statusesApi = {

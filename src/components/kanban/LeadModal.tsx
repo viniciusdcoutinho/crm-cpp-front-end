@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon } from 'lucide-react'
+import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { leadsApi, statusesApi, lossReasonsApi, usersApi, contactsApi } from '../../lib/api'
@@ -43,6 +43,10 @@ export function LeadModal({ lead, onClose }: Props) {
   const { data: history = [] }  = useQuery({
     queryKey: ['history', lead.id],
     queryFn:  () => leadsApi.history(lead.id),
+  })
+  const { data: interactions = [] } = useQuery({
+    queryKey: ['interactions', lead.id],
+    queryFn:  () => leadsApi.interactions(lead.id),
   })
 
   const [showTransfer, setShowTransfer] = useState(false)
@@ -305,10 +309,25 @@ export function LeadModal({ lead, onClose }: Props) {
             </div>
           )}
 
-          {/* Histórico */}
+          {/* Timeline de interações */}
+          {interactions.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+                <Clock size={12} /> Timeline ({interactions.length})
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {interactions.map((it: any, idx: number) => (
+                  <InteractionItem key={it.id} interaction={it} isFirst={idx === 0} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Histórico de alterações */}
           {history.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-2">Histórico de alterações</p>
+              <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+                <Edit3 size={12} /> Alterações</p>
               <div className="space-y-1.5 max-h-32 overflow-y-auto">
                 {history.map((h: any) => (
                   <div key={h.id} className="flex gap-2 text-xs text-gray-500">
@@ -341,6 +360,60 @@ export function LeadModal({ lead, onClose }: Props) {
             {update.isPending ? 'Salvando...' : 'Salvar'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  chatinit:           'Chat iniciado',
+  widgetinit:         'Widget aberto',
+  chatinattendance:   'Chat atendido',
+  chatterminated:     'Chat encerrado',
+  oncall:             'Ligação atendida',
+  queueanswer:        'Chamada atendida',
+  clicktocallinit:    'Click-to-call iniciado',
+  queuehangup:        'Chamada finalizada',
+  closecall:          'Chamada encerrada',
+  clicktocallhangup:  'Click-to-call encerrado',
+  historical:         'Primeiro contato',
+  manual:             'Manual',
+}
+
+function InteractionItem({ interaction, isFirst }: { interaction: any; isFirst: boolean }) {
+  const isCall = interaction.channelType === 'call'
+  const isClose = ['chatterminated', 'queuehangup', 'closecall', 'clicktocallhangup']
+    .includes(interaction.eventType)
+  const Icon = isCall ? Phone : MessageCircle
+  const label = EVENT_LABELS[interaction.eventType] || interaction.eventType
+
+  return (
+    <div className="flex gap-2.5 text-xs">
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+        isCall ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
+      }`}>
+        <Icon size={11} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className={`font-medium ${isFirst ? 'text-gray-900' : 'text-gray-700'}`}>
+            {label}
+          </span>
+          <span className="text-gray-400">
+            {interaction.startedAt && format(new Date(interaction.startedAt), "d/MM 'às' HH:mm", { locale: ptBR })}
+          </span>
+          {isClose && interaction.notes && (
+            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full">com resumo</span>
+          )}
+        </div>
+        {interaction.notes && (
+          <p className="text-gray-500 mt-0.5 whitespace-pre-wrap line-clamp-2 leading-relaxed">
+            {interaction.notes}
+          </p>
+        )}
+        {interaction.user && (
+          <p className="text-[11px] text-gray-400 mt-0.5">por {interaction.user.name}</p>
+        )}
       </div>
     </div>
   )
