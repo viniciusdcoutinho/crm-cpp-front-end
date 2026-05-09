@@ -76,6 +76,10 @@ export const lossReasonsApi = {
   list: () => api.get('/api/loss-reasons').then(r => r.data),
 }
 
+export const usersApi = {
+  vendedoras: () => api.get('/api/users/vendedoras').then(r => r.data),
+}
+
 export const adminApi = {
   listUsers:    () => api.get('/admin/users').then(r => r.data),
   createUser:   (data: any) => api.post('/admin/users', data).then(r => r.data),

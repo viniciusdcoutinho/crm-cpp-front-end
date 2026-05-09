@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Star, Phone, MessageCircle } from 'lucide-react'
+import { X, Star, Phone, MessageCircle, Send } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { leadsApi, statusesApi, lossReasonsApi } from '../../lib/api'
+import { leadsApi, statusesApi, lossReasonsApi, usersApi } from '../../lib/api'
+import { useAuthStore } from '../../lib/store'
 
 interface Props { lead: any; onClose: () => void }
 
@@ -24,15 +25,31 @@ export function LeadModal({ lead, onClose }: Props) {
     statusId:              lead.status?.id         || '',
   })
 
+  const currentUser = useAuthStore(s => s.user)
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
   const { data: lossReasons = [] } = useQuery({ queryKey: ['loss-reasons'], queryFn: lossReasonsApi.list })
+  const { data: vendedoras = [] } = useQuery({ queryKey: ['vendedoras'], queryFn: usersApi.vendedoras })
   const { data: history = [] }  = useQuery({
     queryKey: ['history', lead.id],
     queryFn:  () => leadsApi.history(lead.id),
   })
 
+  const [showTransfer, setShowTransfer] = useState(false)
+  const transfer = useMutation({
+    mutationFn: (userId: string) => leadsApi.update(lead.id, { userId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] })
+      onClose()
+    },
+  })
+
   const currentStatus = statuses.find((s: any) => s.id === form.statusId)
   const showLossReason = currentStatus?.isFinal && currentStatus?.label?.toLowerCase() !== 'fechado'
+
+  // Lista pra encaminhamento: vendedoras ativas, exceto a atual dona do lead
+  const transferOptions = vendedoras.filter((v: any) =>
+    v.id !== lead.user?.id && v.id !== currentUser?.userId
+  )
 
   const update = useMutation({
     mutationFn: () => leadsApi.update(lead.id, {
@@ -164,6 +181,53 @@ export function LeadModal({ lead, onClose }: Props) {
               onChange={set('resumo')}
               className={`${inputCls} resize-none`}
             />
+          </div>
+
+          {/* Encaminhar */}
+          <div className="border border-gray-100 rounded-xl p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-700">Vendedora atribuída</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {lead.user?.name ?? '— sem dono —'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTransfer(s => !s)}
+                className="text-xs flex items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-full font-medium flex-shrink-0"
+              >
+                <Send size={12} /> {showTransfer ? 'Cancelar' : 'Encaminhar'}
+              </button>
+            </div>
+            {showTransfer && (
+              <div className="mt-3 space-y-2">
+                {transferOptions.length === 0 && (
+                  <p className="text-xs text-gray-400">Nenhuma outra vendedora ativa pra encaminhar.</p>
+                )}
+                {transferOptions.map((v: any) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`Encaminhar este lead para ${v.name}?`)) transfer.mutate(v.id)
+                    }}
+                    disabled={transfer.isPending}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 hover:bg-gray-50 disabled:opacity-50 text-left"
+                  >
+                    {v.photoUrl ? (
+                      <img src={v.photoUrl} alt={v.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-gray-100" onError={e => (e.currentTarget.style.display = 'none')} />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-semibold text-blue-700 flex-shrink-0">
+                        {v.name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                    <span className="text-sm text-gray-700 flex-1 truncate">{v.name}</span>
+                    <Send size={14} className="text-blue-500 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Motivo não venda — só em status final que não seja Fechado */}
