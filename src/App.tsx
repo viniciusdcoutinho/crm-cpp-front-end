@@ -4,6 +4,7 @@ import { useAuthStore } from './lib/store'
 import { Layout } from './components/shared/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { CrmPage } from './pages/CrmPage'
+import { ContactsPage } from './pages/ContactsPage'
 import { AssistantPage } from './pages/AssistantPage'
 import { PerformancePage } from './pages/PerformancePage'
 import { AdminPage } from './pages/AdminPage'
@@ -39,6 +40,7 @@ export default function App() {
             }
           >
             <Route index element={<CrmPage />} />
+            <Route path="contatos" element={<ContactsPage />} />
             <Route path="assistente" element={<AssistantPage />} />
             <Route path="performance" element={<PerformancePage />} />
             <Route

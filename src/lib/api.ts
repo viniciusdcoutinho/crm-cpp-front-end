@@ -80,6 +80,12 @@ export const usersApi = {
   vendedoras: () => api.get('/api/users/vendedoras').then(r => r.data),
 }
 
+export const contactsApi = {
+  list: (search?: string) =>
+    api.get('/api/contacts', { params: { search } }).then(r => r.data),
+  get:  (id: string) => api.get(`/api/contacts/${id}`).then(r => r.data),
+}
+
 export const adminApi = {
   listUsers:    () => api.get('/admin/users').then(r => r.data),
   createUser:   (data: any) => api.post('/admin/users', data).then(r => r.data),

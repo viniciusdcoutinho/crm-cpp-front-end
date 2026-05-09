@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Star, Phone, MessageCircle, Send } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { leadsApi, statusesApi, lossReasonsApi, usersApi } from '../../lib/api'
+import { leadsApi, statusesApi, lossReasonsApi, usersApi, contactsApi } from '../../lib/api'
 import { useAuthStore } from '../../lib/store'
 
 interface Props { lead: any; onClose: () => void }
@@ -25,8 +26,18 @@ export function LeadModal({ lead, onClose }: Props) {
     statusId:              lead.status?.id         || '',
   })
 
+  const navigate = useNavigate()
   const currentUser = useAuthStore(s => s.user)
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
+
+  const contactId: string | undefined = lead.contact?.id
+  const { data: contactDetail } = useQuery({
+    queryKey: ['contact', contactId],
+    queryFn:  () => contactId ? contactsApi.get(contactId) : Promise.resolve(null),
+    enabled: !!contactId,
+  })
+  // Outros leads do mesmo contato (excluindo o atual)
+  const otherLeads = (contactDetail?.leads ?? []).filter((l: any) => l.id !== lead.id)
   const { data: lossReasons = [] } = useQuery({ queryKey: ['loss-reasons'], queryFn: lossReasonsApi.list })
   const { data: vendedoras = [] } = useQuery({ queryKey: ['vendedoras'], queryFn: usersApi.vendedoras })
   const { data: history = [] }  = useQuery({
@@ -182,6 +193,54 @@ export function LeadModal({ lead, onClose }: Props) {
               className={`${inputCls} resize-none`}
             />
           </div>
+
+          {/* Histórico do contato */}
+          {contactId && (
+            <div className="border border-gray-100 rounded-xl p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <UsersIcon size={14} className="text-gray-500 flex-shrink-0" />
+                  <p className="text-sm font-medium text-gray-700">Histórico do contato</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { onClose(); navigate('/contatos') }}
+                  className="text-xs text-blue-600 hover:underline flex-shrink-0"
+                >
+                  Ver tudo
+                </button>
+              </div>
+              {otherLeads.length === 0 ? (
+                <p className="text-xs text-gray-400">Este é o primeiro lead deste contato.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {otherLeads.slice(0, 5).map((l: any) => (
+                    <div key={l.id} className="flex items-center gap-2 text-xs">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: l.status?.color || '#888' }}
+                      />
+                      <span className="text-gray-400 flex-shrink-0">
+                        {l.createdAt && format(new Date(l.createdAt), 'dd/MM/yy')}
+                      </span>
+                      <span className="text-gray-700 truncate flex-1">
+                        {l.produtoInteresse || 'Lead'}
+                      </span>
+                      <span className="text-gray-500 whitespace-nowrap">{l.status?.label}</span>
+                      {l.valorNegociacao && (
+                        <span className="text-emerald-600 font-medium whitespace-nowrap">
+                          R$ {Number(l.valorNegociacao).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {otherLeads.length > 5 && (
+                    <p className="text-[11px] text-gray-400 mt-1">+ {otherLeads.length - 5} outros leads</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Encaminhar */}
           <div className="border border-gray-100 rounded-xl p-3">

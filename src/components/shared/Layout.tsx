@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Bot, BarChart2, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Bot, BarChart2, Settings, LogOut, Users } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore, useSse } from '../../lib/store'
 
@@ -17,6 +17,7 @@ export function Layout() {
 
   const nav = [
     { to: '/',            icon: LayoutDashboard, label: 'CRM' },
+    { to: '/contatos',    icon: Users,           label: 'Contatos' },
     { to: '/assistente',  icon: Bot,             label: 'Assistente' },
     { to: '/performance', icon: BarChart2,        label: 'Performance' },
     ...(user?.role === 'admin'
