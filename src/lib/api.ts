@@ -80,6 +80,13 @@ export const adminApi = {
   listUsers:    () => api.get('/admin/users').then(r => r.data),
   createUser:   (data: any) => api.post('/admin/users', data).then(r => r.data),
   updateUser:   (id: string, data: any) => api.patch(`/admin/users/${id}`, data).then(r => r.data),
+  uploadUserPhoto: (id: string, file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/admin/users/${id}/photo`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
+  },
   listStatuses: () => api.get('/admin/statuses').then(r => r.data),
   createStatus: (data: any) => api.post('/admin/statuses', data).then(r => r.data),
   updateStatus: (id: string, data: any) => api.patch(`/admin/statuses/${id}`, data).then(r => r.data),

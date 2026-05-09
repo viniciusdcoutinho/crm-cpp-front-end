@@ -210,13 +210,31 @@ function UsersTab() {
             </div>
           ))}
           <div className="col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Foto (URL)</label>
+            <label className="block text-xs text-gray-500 mb-1">Foto</label>
             <div className="flex items-center gap-3">
-              <input type="url" placeholder="https://..." value={form.photoUrl} onChange={e => setForm(f => ({ ...f, photoUrl: e.target.value }))} className={inputCls} />
-              {form.photoUrl && (
-                <img src={form.photoUrl} alt="Preview" className="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+              {form.photoUrl ? (
+                <img
+                  src={form.photoUrl}
+                  alt="Preview"
+                  key={form.photoUrl}
+                  className="w-14 h-14 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                  onError={e => (e.currentTarget.style.display = 'none')}
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs flex-shrink-0">
+                  sem foto
+                </div>
               )}
+              <PhotoUpload
+                userId={editingId}
+                onUploaded={url => setForm(f => ({ ...f, photoUrl: url }))}
+              />
             </div>
+            {!editingId && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Salve o usuário primeiro pra habilitar o upload da foto.
+              </p>
+            )}
           </div>
           <div className="col-span-2 flex justify-end gap-2 pt-2">
             <button onClick={reset} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
@@ -264,6 +282,56 @@ function UsersTab() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function PhotoUpload({ userId, onUploaded }: { userId: string | null; onUploaded: (url: string) => void }) {
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState('')
+
+  const upload = useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) => adminApi.uploadUserPhoto(id, file),
+    onSuccess: (saved: any) => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      if (saved?.photoUrl) onUploaded(saved.photoUrl)
+      setError('')
+    },
+    onError: (err: any) => {
+      setError(err?.response?.data?.message || 'Falha no upload')
+    },
+  })
+
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Arquivo maior que 5MB.')
+      return
+    }
+    upload.mutate({ id: userId, file })
+    e.target.value = ''
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={onPick}
+        className="hidden"
+      />
+      <button
+        type="button"
+        disabled={!userId || upload.isPending}
+        onClick={() => fileRef.current?.click()}
+        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+      >
+        {upload.isPending ? 'Enviando...' : (userId ? 'Enviar foto' : 'Salve o usuário primeiro')}
+      </button>
+      {error && <p className="text-[11px] text-red-500">{error}</p>}
     </div>
   )
 }
