@@ -1,4 +1,5 @@
 import { useDroppable } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { LeadCard } from './LeadCard'
 
 interface Props {
@@ -40,9 +41,11 @@ export function KanbanColumn({ status, leads }: Props) {
           isOver ? 'bg-blue-50 ring-2 ring-blue-200' : 'bg-gray-50/50'
         }`}
       >
-        {leads.map(lead => (
-          <LeadCard key={lead.id} lead={lead} />
-        ))}
+        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+          {leads.map(lead => (
+            <LeadCard key={lead.id} lead={lead} />
+          ))}
+        </SortableContext>
         {leads.length === 0 && (
           <p className="text-center text-xs text-gray-300 py-6">Nenhum lead</p>
         )}

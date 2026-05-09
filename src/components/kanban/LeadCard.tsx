@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useDraggable } from '@dnd-kit/core'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Star, AlertCircle, Phone, MessageCircle, MessageSquare, Calendar, User, ArrowRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -30,10 +31,14 @@ function formatCurrency(v: any): string {
 
 export function LeadCard({ lead }: Props) {
   const [open, setOpen] = useState(false)
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id })
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: lead.id, data: { lead } })
 
   const style: React.CSSProperties = {
-    ...(transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 } : {}),
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
     borderLeftColor: lead.status?.color || '#cbd5e1',
     borderLeftWidth: '4px',
   }
