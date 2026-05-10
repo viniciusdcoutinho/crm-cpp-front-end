@@ -72,13 +72,14 @@ export function PerformancePage() {
 
 // ─── Admin Page ───────────────────────────────────────────────
 export function AdminPage() {
-  const [tab, setTab] = useState<'users' | 'statuses' | 'reasons' | 'scripts' | 'sla' | 'logs'>('users')
+  const [tab, setTab] = useState<'users' | 'statuses' | 'reasons' | 'scripts' | 'sla' | 'settings' | 'logs'>('users')
   const tabs = [
     { id: 'users',    label: 'Usuários' },
     { id: 'statuses', label: 'Status do kanban' },
     { id: 'reasons',  label: 'Motivos de não venda' },
     { id: 'scripts',  label: 'Scripts padrão' },
     { id: 'sla',      label: 'Config SLA' },
+    { id: 'settings', label: 'Configurações' },
     { id: 'logs',     label: 'Webhook logs' },
   ] as const
 
@@ -105,9 +106,102 @@ export function AdminPage() {
       {tab === 'reasons'  && <LossReasonsTab />}
       {tab === 'scripts'  && <ScriptsTab />}
       {tab === 'sla'      && <SlaTab />}
+      {tab === 'settings' && <SettingsTab />}
       {tab === 'logs'     && <LogsTab />}
     </div>
   )
+}
+
+function SettingsTab() {
+  const qc = useQueryClient()
+  const { data: settings = [], isLoading } = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: adminApi.listSettings,
+  })
+  const toggle = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) => adminApi.updateSetting(key, value),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-settings'] }),
+  })
+
+  if (isLoading) {
+    return <p className="text-sm text-gray-400 text-center py-8">Carregando...</p>
+  }
+  if (settings.length === 0) {
+    return <p className="text-sm text-gray-400 text-center py-8">Nenhuma configuração disponível.</p>
+  }
+
+  return (
+    <div className="space-y-3">
+      {settings.map((s: any) => {
+        const isBool = s.value === 'true' || s.value === 'false'
+        const enabled = s.value === 'true'
+        return (
+          <div key={s.settingKey} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-start gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-gray-900">{prettifyKey(s.settingKey)}</p>
+              {s.description && (
+                <p className="text-sm text-gray-500 mt-1 leading-relaxed">{s.description}</p>
+              )}
+              {s.updatedBy?.name && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Última alteração por <span className="font-medium">{s.updatedBy.name}</span>
+                </p>
+              )}
+            </div>
+            <div className="flex-shrink-0">
+              {isBool ? (
+                <ToggleSwitch
+                  enabled={enabled}
+                  disabled={toggle.isPending}
+                  onChange={(next) => toggle.mutate({ key: s.settingKey, value: next ? 'true' : 'false' })}
+                />
+              ) : (
+                <input
+                  type="text"
+                  defaultValue={s.value || ''}
+                  onBlur={(e) => {
+                    if (e.target.value !== (s.value || '')) {
+                      toggle.mutate({ key: s.settingKey, value: e.target.value })
+                    }
+                  }}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ToggleSwitch({ enabled, disabled, onChange }: { enabled: boolean; disabled: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      disabled={disabled}
+      onClick={() => onChange(!enabled)}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+        enabled ? 'bg-blue-600' : 'bg-gray-200'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          enabled ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  )
+}
+
+function prettifyKey(key: string): string {
+  const map: Record<string, string> = {
+    require_vendedora_assignment: 'Exigir vendedora identificada para criar lead',
+  }
+  if (map[key]) return map[key]
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 function UsersTab() {
