@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { DndContext, DragEndEvent, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import {
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
+  closestCorners, PointerSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
 import { leadsApi, statusesApi, type LeadFilters } from '../../lib/api'
 import { KanbanColumn } from './KanbanColumn'
+import { LeadCardOverlay } from './LeadCard'
 
 interface Props { filters?: LeadFilters }
 
@@ -16,6 +21,14 @@ export function KanbanBoard({ filters }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
+
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const activeLead = activeId ? leads.find((l: any) => l.id === activeId) : null
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id))
+  }
+  const handleDragCancel = () => setActiveId(null)
 
   const moveLead = useMutation({
     mutationFn: ({ id, statusId, position }: { id: string; statusId: string; position: number }) =>
@@ -37,6 +50,7 @@ export function KanbanBoard({ filters }: Props) {
   })
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null)
     const { active, over } = event
     if (!over) return
     const leadId = String(active.id)
@@ -91,7 +105,13 @@ export function KanbanBoard({ filters }: Props) {
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
       <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-4 h-full items-stretch">
         {statuses.map((status: any) => {
           const colLeads = leads
@@ -102,6 +122,9 @@ export function KanbanBoard({ filters }: Props) {
           )
         })}
       </div>
+      <DragOverlay dropAnimation={{ duration: 200 }}>
+        {activeLead ? <LeadCardOverlay lead={activeLead} /> : null}
+      </DragOverlay>
     </DndContext>
   )
 }
