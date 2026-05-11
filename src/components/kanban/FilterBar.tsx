@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { Search, X } from 'lucide-react'
+import { Archive, Search, X } from 'lucide-react'
 import { lossReasonsApi, adminApi, type LeadFilters } from '../../lib/api'
 import { useAuthStore } from '../../lib/store'
 
 export type FilterPreset = 'all' | 'today' | 'yesterday' | 'current_month' | 'last_month' | 'custom'
+
+export type ArchivedFilter = 'active' | 'archived'
 
 export type FilterState = {
   preset: FilterPreset
@@ -13,6 +15,7 @@ export type FilterState = {
   search: string
   userId: string
   canal: string
+  archived: ArchivedFilter
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -23,6 +26,7 @@ export const EMPTY_FILTERS: FilterState = {
   search: '',
   userId: '',
   canal: '',
+  archived: 'active',
 }
 
 const ymd = (d: Date) =>
@@ -62,11 +66,13 @@ export function filtersToApiParams(f: FilterState): LeadFilters {
     motivoNaoVenda: f.motivoNaoVenda || undefined,
     search:         f.search.trim() || undefined,
     canal:          f.canal || undefined,
+    archived:       f.archived,
   }
 }
 
 export function hasActiveFilters(f: FilterState): boolean {
-  return f.preset !== 'all' || !!f.search.trim() || !!f.motivoNaoVenda || !!f.userId || !!f.canal
+  return f.preset !== 'all' || !!f.search.trim() || !!f.motivoNaoVenda
+    || !!f.userId || !!f.canal || f.archived !== 'active'
 }
 
 const CANAL_OPTIONS: { value: string; label: string }[] = [
@@ -175,6 +181,26 @@ export function FilterBar({ filters, onChange }: Props) {
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
+      )}
+
+      {/* Ver arquivados — só admin */}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={() => onChange({
+            ...filters,
+            archived: filters.archived === 'archived' ? 'active' : 'archived',
+          })}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            filters.archived === 'archived'
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+          }`}
+          title="Mostrar apenas leads arquivados"
+        >
+          <Archive size={12} />
+          {filters.archived === 'archived' ? 'Arquivados' : 'Ver arquivados'}
+        </button>
       )}
 
       {/* Origem (canal) */}

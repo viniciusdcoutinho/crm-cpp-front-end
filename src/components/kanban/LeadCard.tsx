@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Star, AlertCircle, Phone, MessageCircle, MessageSquare, Calendar, User, ArrowRight } from 'lucide-react'
+import { Star, AlertCircle, Archive, Phone, MessageCircle, MessageSquare, Calendar, User, ArrowRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { LeadModal } from './LeadModal'
@@ -44,6 +44,11 @@ function LeadCardBody({ lead }: Props) {
 
   return (
     <>
+      {lead.archived && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+          <Archive size={10} /> Arquivado
+        </div>
+      )}
       <div className="flex items-start gap-2.5 mb-2">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-gray-600">
           {getInitials(lead.nomeCliente)}
@@ -145,9 +150,13 @@ export function LeadCard({ lead }: Props) {
     transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.35 : 1,
-    borderLeftColor: lead.status?.color || '#cbd5e1',
+    borderLeftColor: lead.archived ? '#9ca3af' : (lead.status?.color || '#cbd5e1'),
     borderLeftWidth: '4px',
   }
+
+  const bgCls = lead.archived
+    ? 'bg-gray-100 grayscale opacity-80 hover:opacity-100'
+    : lead.slaBreached ? 'ring-1 ring-red-200 bg-red-50/40 bg-white' : 'bg-white'
 
   return (
     <>
@@ -157,9 +166,7 @@ export function LeadCard({ lead }: Props) {
         {...listeners}
         {...attributes}
         onClick={e => { e.stopPropagation(); if (!isDragging) setOpen(true) }}
-        className={`bg-white rounded-xl border border-gray-200 p-3 cursor-pointer select-none transition-shadow shadow-sm hover:shadow-md ${
-          lead.slaBreached ? 'ring-1 ring-red-200 bg-red-50/40' : ''
-        }`}
+        className={`rounded-xl border border-gray-200 p-3 cursor-pointer select-none transition-shadow shadow-sm hover:shadow-md ${bgCls}`}
       >
         <LeadCardBody lead={lead} />
       </div>
@@ -176,13 +183,15 @@ export function LeadCard({ lead }: Props) {
  */
 export function LeadCardOverlay({ lead }: Props) {
   const style: React.CSSProperties = {
-    borderLeftColor: lead.status?.color || '#cbd5e1',
+    borderLeftColor: lead.archived ? '#9ca3af' : (lead.status?.color || '#cbd5e1'),
     borderLeftWidth: '4px',
   }
   return (
     <div
       style={style}
-      className="bg-white rounded-xl border border-gray-200 p-3 shadow-2xl rotate-2 scale-[1.03] cursor-grabbing w-72"
+      className={`rounded-xl border border-gray-200 p-3 shadow-2xl rotate-2 scale-[1.03] cursor-grabbing w-72 ${
+        lead.archived ? 'bg-gray-100 grayscale' : 'bg-white'
+      }`}
     >
       <LeadCardBody lead={lead} />
     </div>

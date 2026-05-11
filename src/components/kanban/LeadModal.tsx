@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3 } from 'lucide-react'
+import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3, Archive, ArchiveRestore } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { leadsApi, statusesApi, lossReasonsApi, usersApi, contactsApi } from '../../lib/api'
@@ -50,10 +50,20 @@ export function LeadModal({ lead, onClose }: Props) {
   })
 
   const [showTransfer, setShowTransfer] = useState(false)
+  const isAdmin = currentUser?.role === 'admin'
   const transfer = useMutation({
     mutationFn: (userId: string) => leadsApi.update(lead.id, { userId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] })
+      onClose()
+    },
+  })
+
+  const archive = useMutation({
+    mutationFn: () => lead.archived ? leadsApi.unarchive(lead.id) : leadsApi.archive(lead.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] })
+      qc.invalidateQueries({ queryKey: ['perf-leads'] })
       onClose()
     },
   })
@@ -102,7 +112,14 @@ export function LeadModal({ lead, onClose }: Props) {
                 : <MessageCircle size={16} className="text-green-500" />}
             </div>
             <div>
-              <h2 className="font-medium text-gray-900">{lead.nomeCliente}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-medium text-gray-900">{lead.nomeCliente}</h2>
+                {lead.archived && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">
+                    <Archive size={10} /> Arquivado
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-400">
                 {lead.createdAt && format(new Date(lead.createdAt), "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}
               </p>
@@ -349,6 +366,33 @@ export function LeadModal({ lead, onClose }: Props) {
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-100 flex gap-3">
+          {isAdmin && (
+            lead.archived ? (
+              <button
+                onClick={() => archive.mutate()}
+                disabled={archive.isPending}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-4 border border-blue-200 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-100 disabled:opacity-50 transition-colors"
+                title="Desarquivar lead"
+              >
+                <ArchiveRestore size={14} />
+                {archive.isPending ? 'Desarquivando...' : 'Desarquivar'}
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (confirm('Arquivar este lead? Ele some da listagem normal e nao conta em metricas. Voce pode desarquivar depois.')) {
+                    archive.mutate()
+                  }
+                }}
+                disabled={archive.isPending}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-4 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                title="Arquivar lead (some da listagem e do Performance)"
+              >
+                <Archive size={14} />
+                {archive.isPending ? 'Arquivando...' : 'Arquivar'}
+              </button>
+            )
+          )}
           <button
             onClick={onClose}
             className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"

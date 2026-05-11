@@ -39,6 +39,7 @@ export type LeadFilters = {
   motivoNaoVenda?: string
   search?: string
   canal?: string
+  archived?: 'active' | 'archived' | 'all'
 }
 
 export const leadsApi = {
@@ -49,6 +50,8 @@ export const leadsApi = {
   update:  (id: string, data: any) => api.patch(`/api/leads/${id}`, data).then(r => r.data),
   history: (id: string) => api.get(`/api/leads/${id}/history`).then(r => r.data),
   interactions: (id: string) => api.get(`/api/leads/${id}/interactions`).then(r => r.data),
+  archive:   (id: string) => api.post(`/api/leads/${id}/archive`).then(r => r.data),
+  unarchive: (id: string) => api.post(`/api/leads/${id}/unarchive`).then(r => r.data),
 }
 
 export const statusesApi = {
