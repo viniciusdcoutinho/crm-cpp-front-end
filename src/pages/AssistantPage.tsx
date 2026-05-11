@@ -31,8 +31,9 @@ function ScriptsPanel() {
   const [copied, setCopied]       = useState<string | null>(null)
   const [showForm, setShowForm]   = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const emptyForm = { categoryId: '', title: '', content: '' }
+  const emptyForm = { categoryId: '', title: '', content: '', global: false }
   const [form, setForm] = useState(emptyForm)
+  const isAdmin = currentUser?.role === 'admin'
   const contentRef = useRef<HTMLTextAreaElement>(null)
 
   const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
@@ -85,13 +86,19 @@ function ScriptsPanel() {
 
   const submit = () => {
     if (!form.categoryId || !form.title.trim() || !form.content.trim()) return
-    const payload = {
+    const payload: any = {
       categoryId: form.categoryId,
       title: form.title.trim(),
       content: form.content.trim(),
     }
-    if (editingId) update.mutate({ id: editingId, ...payload })
-    else create.mutate(payload)
+    if (editingId) {
+      // PATCH /api/scripts/id so altera personal proprio - sem campo global
+      update.mutate({ id: editingId, ...payload })
+    } else {
+      // Backend so honra global=true se currentUser e admin
+      if (isAdmin && form.global) payload.global = true
+      create.mutate(payload)
+    }
   }
 
   const openCreate = () => {
@@ -175,8 +182,25 @@ function ScriptsPanel() {
               className={`${inputCls} resize-y`}
             />
           </div>
+          {isAdmin && !editingId && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.global}
+                onChange={e => setForm(f => ({ ...f, global: e.target.checked }))}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-100"
+              />
+              <span className="text-sm text-gray-700">
+                Disponibilizar para todas as vendedoras (script padrão)
+              </span>
+            </label>
+          )}
           <div className="flex justify-between items-center pt-1">
-            <p className="text-xs text-gray-400">Visível só pra você</p>
+            <p className="text-xs text-gray-400">
+              {isAdmin && form.global && !editingId
+                ? 'Visível para todas as vendedoras'
+                : 'Visível só pra você'}
+            </p>
             <button
               onClick={submit}
               disabled={create.isPending || update.isPending || !form.categoryId || !form.title.trim() || !form.content.trim()}
