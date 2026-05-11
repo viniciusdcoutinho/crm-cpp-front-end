@@ -59,7 +59,10 @@ export function LeadModal({ lead, onClose }: Props) {
   })
 
   const currentStatus = statuses.find((s: any) => s.id === form.statusId)
-  const showLossReason = currentStatus?.isFinal && currentStatus?.label?.toLowerCase() !== 'fechado'
+  // Motivo de nao venda eh editavel em qualquer status que nao seja "Fechado".
+  // Vendedora pode pre-anotar motivo enquanto o lead ainda esta em negociacao,
+  // e ele fica salvo pra quando/se mover pra Perdido.
+  const showLossReason = currentStatus?.label?.toLowerCase() !== 'fechado'
 
   // Lista pra encaminhamento: vendedoras ativas, exceto a atual dona do lead
   const transferOptions = vendedoras.filter((v: any) =>

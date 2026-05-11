@@ -12,6 +12,7 @@ export type FilterState = {
   motivoNaoVenda: string
   search: string
   userId: string
+  canal: string
 }
 
 export const EMPTY_FILTERS: FilterState = {
@@ -21,6 +22,7 @@ export const EMPTY_FILTERS: FilterState = {
   motivoNaoVenda: '',
   search: '',
   userId: '',
+  canal: '',
 }
 
 const ymd = (d: Date) =>
@@ -59,12 +61,19 @@ export function filtersToApiParams(f: FilterState): LeadFilters {
     dateTo:         f.dateTo   || undefined,
     motivoNaoVenda: f.motivoNaoVenda || undefined,
     search:         f.search.trim() || undefined,
+    canal:          f.canal || undefined,
   }
 }
 
 export function hasActiveFilters(f: FilterState): boolean {
-  return f.preset !== 'all' || !!f.search.trim() || !!f.motivoNaoVenda || !!f.userId
+  return f.preset !== 'all' || !!f.search.trim() || !!f.motivoNaoVenda || !!f.userId || !!f.canal
 }
+
+const CANAL_OPTIONS: { value: string; label: string }[] = [
+  { value: 'whatsapp',   label: 'WhatsApp' },
+  { value: 'ligacao',    label: 'Ligação' },
+  { value: 'rd_station', label: 'RD Station' },
+]
 
 interface Props {
   filters: FilterState
@@ -167,6 +176,18 @@ export function FilterBar({ filters, onChange }: Props) {
           ))}
         </select>
       )}
+
+      {/* Origem (canal) */}
+      <select
+        value={filters.canal}
+        onChange={e => onChange({ ...filters, canal: e.target.value })}
+        className={inputCls}
+      >
+        <option value="">Todas origens</option>
+        {CANAL_OPTIONS.map(o => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
 
       {/* Loss reason */}
       <select

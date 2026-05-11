@@ -38,6 +38,7 @@ export type LeadFilters = {
   dateTo?: string
   motivoNaoVenda?: string
   search?: string
+  canal?: string
 }
 
 export const leadsApi = {
