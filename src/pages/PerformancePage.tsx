@@ -79,7 +79,11 @@ export function PerformancePage() {
         <ChartCard title="Funil de vendas" subtitle="Pipeline por estágio · contagem e valor" className="xl:col-span-1">
           <FunnelStages statuses={statuses} leads={leads} />
         </ChartCard>
-        <ChartCard title="Leads por dia" subtitle="Recebidos × convertidos" className="xl:col-span-2">
+        <ChartCard
+          title={isSingleDayRange(filters) ? 'Leads por hora' : 'Leads por dia'}
+          subtitle="Recebidos × convertidos"
+          className="xl:col-span-2"
+        >
           <TimelineChart leads={leads} filters={filters} />
         </ChartCard>
       </div>
@@ -218,8 +222,36 @@ function FunnelStages({ statuses, leads }: { statuses: any[]; leads: any[] }) {
 }
 
 // ─── Timeline Chart ────────────────────────────────────────────────────────
+function isSingleDayRange(filters: FilterState): boolean {
+  return !!filters.dateFrom && filters.dateFrom === filters.dateTo
+}
+
 function TimelineChart({ leads, filters }: { leads: any[]; filters: FilterState }) {
+  const singleDay = isSingleDayRange(filters)
+
   const data = useMemo(() => {
+    if (singleDay) {
+      const day = parseISO(filters.dateFrom)
+      return Array.from({ length: 24 }, (_, h) => {
+        const recebidos = leads.filter(l => {
+          if (!l.createdAt) return false
+          const d = parseISO(l.createdAt)
+          return isSameDay(d, day) && d.getHours() === h
+        }).length
+        const convertidos = leads.filter(l => {
+          if (l.status?.label?.toLowerCase() !== 'fechado') return false
+          if (!l.updatedAt) return false
+          const d = parseISO(l.updatedAt)
+          return isSameDay(d, day) && d.getHours() === h
+        }).length
+        return {
+          date: `${String(h).padStart(2, '0')}h`,
+          recebidos,
+          convertidos,
+        }
+      })
+    }
+
     const today = new Date()
     let from: Date
     let to: Date = today
@@ -244,7 +276,7 @@ function TimelineChart({ leads, filters }: { leads: any[]; filters: FilterState 
         convertidos,
       }
     })
-  }, [leads, filters.dateFrom, filters.dateTo])
+  }, [leads, filters.dateFrom, filters.dateTo, singleDay])
 
   if (data.every(d => d.recebidos === 0 && d.convertidos === 0)) {
     return <p className="text-sm text-gray-400 text-center py-8">Sem dados no período.</p>
