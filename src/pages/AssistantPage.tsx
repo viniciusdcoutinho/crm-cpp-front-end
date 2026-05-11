@@ -113,6 +113,7 @@ function ScriptsPanel() {
       categoryId: s.category?.id || '',
       title: s.title || '',
       content: s.content || '',
+      global: s.scope === 'global',
     })
     setShowForm(true)
   }
