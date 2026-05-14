@@ -90,6 +90,8 @@ export const lossReasonsApi = {
 export const usersApi = {
   vendedoras: () => api.get('/api/users/vendedoras').then(r => r.data),
   me:         () => api.get('/api/users/me').then(r => r.data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.post('/api/users/me/password', data).then(r => r.data),
 }
 
 export const contactsApi = {
@@ -102,6 +104,8 @@ export const adminApi = {
   listUsers:    () => api.get('/admin/users').then(r => r.data),
   createUser:   (data: any) => api.post('/admin/users', data).then(r => r.data),
   updateUser:   (id: string, data: any) => api.patch(`/admin/users/${id}`, data).then(r => r.data),
+  changeUserPassword: (id: string, password: string) =>
+    api.patch(`/admin/users/${id}/password`, { password }).then(r => r.data),
   uploadUserPhoto: (id: string, file: File) => {
     const fd = new FormData()
     fd.append('file', file)

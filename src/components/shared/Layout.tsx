@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Bot, BarChart2, Settings, LogOut, Users } from 'lucide-react'
+import { LayoutDashboard, Bot, BarChart2, Settings, LogOut, Users, KeyRound } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore, useSse } from '../../lib/store'
+import { ChangePasswordModal } from './ChangePasswordModal'
 
 export function Layout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [showChangePassword, setShowChangePassword] = useState(false)
   useSse()
 
   const handleLogout = () => {
@@ -57,6 +60,14 @@ export function Layout() {
         </nav>
 
         <button
+          onClick={() => setShowChangePassword(true)}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+        >
+          <KeyRound size={18} />
+          Trocar senha
+        </button>
+
+        <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors"
         >
@@ -70,6 +81,13 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {showChangePassword && (
+        <ChangePasswordModal
+          mode={{ kind: 'self' }}
+          onClose={() => setShowChangePassword(false)}
+        />
+      )}
     </div>
   )
 }

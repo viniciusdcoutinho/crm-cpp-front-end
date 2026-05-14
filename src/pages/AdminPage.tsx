@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { performanceApi, adminApi, scriptsApi } from '../lib/api'
 import { SCRIPT_TOKENS } from '../lib/scripts'
+import { ChangePasswordModal } from '../components/shared/ChangePasswordModal'
 
 // ─── Performance Page ─────────────────────────────────────────
 export function PerformancePage() {
@@ -218,6 +219,7 @@ function UsersTab() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [passwordFor, setPasswordFor] = useState<{ id: string; name: string } | null>(null)
 
   const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
 
@@ -444,6 +446,12 @@ function UsersTab() {
                 Editar
               </button>
               <button
+                onClick={() => setPasswordFor({ id: u.id, name: u.name })}
+                className="text-xs text-gray-600 hover:underline px-2 py-1"
+              >
+                Senha
+              </button>
+              <button
                 onClick={() => toggle.mutate({ id: u.id, active: !u.active })}
                 className={`text-xs px-3 py-1 rounded-full transition-colors ${u.active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}
               >
@@ -453,6 +461,13 @@ function UsersTab() {
           </div>
         ))}
       </div>
+
+      {passwordFor && (
+        <ChangePasswordModal
+          mode={{ kind: 'admin', userId: passwordFor.id, userName: passwordFor.name }}
+          onClose={() => setPasswordFor(null)}
+        />
+      )}
     </div>
   )
 }
