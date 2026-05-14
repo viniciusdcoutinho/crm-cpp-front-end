@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { LayoutGrid, List, Star } from 'lucide-react'
+import { LayoutGrid, List, Plus, Star } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { KanbanBoard } from '../components/kanban/KanbanBoard'
 import { LeadModal } from '../components/kanban/LeadModal'
+import { NewLeadModal } from '../components/kanban/NewLeadModal'
 import { PipelineSwitcher } from '../components/shared/PipelineSwitcher'
 import {
   FilterBar,
@@ -18,6 +19,7 @@ import { useCurrentPipeline } from '../lib/pipelines'
 export function CrmPage() {
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  const [showNewLead, setShowNewLead] = useState(false)
   const { current: currentPipeline } = useCurrentPipeline()
   const apiParams: LeadFilters = {
     ...filtersToApiParams(filters),
@@ -49,6 +51,14 @@ export function CrmPage() {
 
         <div className="flex items-center gap-3">
           <PipelineSwitcher />
+          <button
+            onClick={() => setShowNewLead(true)}
+            disabled={!currentPipeline}
+            className="flex items-center gap-1.5 text-sm bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            title={currentPipeline ? 'Criar lead manualmente neste pipeline' : 'Selecione um pipeline'}
+          >
+            <Plus size={16} /> Novo lead
+          </button>
           <div className="flex border border-gray-200 rounded-xl overflow-hidden">
             <button
               onClick={() => setView('kanban')}
@@ -65,6 +75,14 @@ export function CrmPage() {
           </div>
         </div>
       </div>
+
+      {showNewLead && currentPipeline && (
+        <NewLeadModal
+          pipelineId={currentPipeline.id}
+          pipelineName={currentPipeline.name}
+          onClose={() => setShowNewLead(false)}
+        />
+      )}
 
       <FilterBar filters={filters} onChange={setFilters} />
 
