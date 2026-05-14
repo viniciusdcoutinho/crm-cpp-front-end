@@ -796,12 +796,26 @@ function PipelineDistributionEditor({ pipelineId }: { pipelineId: string }) {
     queryFn:  () => adminApi.listDistribution(pipelineId),
   })
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['pipeline-distribution', pipelineId] })
+  const queryKey = ['pipeline-distribution', pipelineId] as const
+  const invalidate = () => qc.invalidateQueries({ queryKey })
 
+  // Optimistic update: aplica a mudanca direto no cache antes da
+  // mutation retornar, pra UI responder no clique sem "piscar". Se
+  // o backend rejeitar (peso fora do range etc), reverte e mostra erro.
   const update = useMutation({
     mutationFn: ({ userId, data }: any) => adminApi.updateDistribution(pipelineId, userId, data),
-    onSuccess: invalidate,
-    onError: (err: any) => alert(err?.response?.data?.message || 'Erro ao atualizar distribuição'),
+    onMutate: async ({ userId, data }: any) => {
+      await qc.cancelQueries({ queryKey })
+      const previous = qc.getQueryData<any[]>(queryKey)
+      qc.setQueryData<any[]>(queryKey, (old) =>
+        old ? old.map(r => r.user.id === userId ? { ...r, ...data } : r) : old)
+      return { previous }
+    },
+    onError: (err: any, _vars, ctx: any) => {
+      if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous)
+      alert(err?.response?.data?.message || err?.response?.data?.error || 'Erro ao atualizar distribuição')
+    },
+    onSettled: invalidate,
   })
   const resetAll = useMutation({
     mutationFn: () => adminApi.resetDistribution(pipelineId),
