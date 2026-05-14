@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { X, KeyRound } from 'lucide-react'
+import { X, KeyRound, Check, Circle } from 'lucide-react'
 import { adminApi, usersApi } from '../../lib/api'
+import { PASSWORD_RULES, validatePassword } from '../../lib/passwordPolicy'
 
 type Mode =
   | { kind: 'self' }
@@ -38,8 +39,9 @@ export function ChangePasswordModal({ mode, onClose }: Props) {
 
   const submit = () => {
     setError('')
-    if (newPassword.length < 8) {
-      setError('Nova senha deve ter pelo menos 8 caracteres.')
+    const policyError = validatePassword(newPassword)
+    if (policyError) {
+      setError(policyError)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -101,8 +103,21 @@ export function ChangePasswordModal({ mode, onClose }: Props) {
               onChange={e => setNewPassword(e.target.value)}
               autoComplete="new-password"
               className={inputCls}
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Mais de 8 caracteres"
             />
+            <ul className="mt-2 space-y-0.5">
+              {PASSWORD_RULES.map(r => {
+                const ok = r.test(newPassword)
+                return (
+                  <li key={r.label} className={`text-[11px] flex items-center gap-1.5 ${
+                    ok ? 'text-emerald-600' : 'text-gray-400'
+                  }`}>
+                    {ok ? <Check size={11} /> : <Circle size={9} />}
+                    {r.label}
+                  </li>
+                )
+              })}
+            </ul>
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Confirmar nova senha</label>

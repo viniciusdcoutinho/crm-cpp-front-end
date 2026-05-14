@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
+import { Check, Circle } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { performanceApi, adminApi, scriptsApi } from '../lib/api'
 import { SCRIPT_TOKENS } from '../lib/scripts'
 import { ChangePasswordModal } from '../components/shared/ChangePasswordModal'
+import { PASSWORD_RULES, validatePassword } from '../lib/passwordPolicy'
 
 // ─── Performance Page ─────────────────────────────────────────
 export function PerformancePage() {
@@ -273,6 +275,11 @@ function UsersTab() {
       const { password: _p, email: _e, ...rest } = form
       update.mutate({ id: editingId, ...rest, defaultPipelineId: computedDefault })
     } else {
+      const policyError = validatePassword(form.password)
+      if (policyError) {
+        alert(policyError)
+        return
+      }
       create.mutate({ ...form, defaultPipelineId: computedDefault })
     }
   }
@@ -311,9 +318,22 @@ function UsersTab() {
             <input type="tel" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="Ex: (62) 99999-0000" className={inputCls} />
           </div>
           {!isEditing && (
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-1">Senha</label>
-              <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} />
+              <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Mais de 8 caracteres" />
+              <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {PASSWORD_RULES.map(r => {
+                  const ok = r.test(form.password)
+                  return (
+                    <li key={r.label} className={`text-[11px] flex items-center gap-1.5 ${
+                      ok ? 'text-emerald-600' : 'text-gray-400'
+                    }`}>
+                      {ok ? <Check size={11} /> : <Circle size={9} />}
+                      {r.label}
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           )}
           <div>
