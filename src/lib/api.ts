@@ -122,6 +122,18 @@ export const adminApi = {
   createPipeline:  (data: any) => api.post('/admin/pipelines', data).then(r => r.data),
   updatePipeline:  (id: string, data: any) => api.patch(`/admin/pipelines/${id}`, data).then(r => r.data),
   deletePipeline:  (id: string) => api.delete(`/admin/pipelines/${id}`),
+  // LP slugs (roteamento RD Station)
+  listPipelineSlugs:  (id: string) => api.get(`/admin/pipelines/${id}/slugs`).then(r => r.data),
+  addPipelineSlug:    (id: string, slug: string) =>
+    api.post(`/admin/pipelines/${id}/slugs`, { slug }).then(r => r.data),
+  deletePipelineSlug: (id: string, slug: string) =>
+    api.delete(`/admin/pipelines/${id}/slugs/${encodeURIComponent(slug)}`),
+  // Distribuicao de leads
+  listDistribution:   (id: string) => api.get(`/admin/pipelines/${id}/distribution`).then(r => r.data),
+  updateDistribution: (id: string, userId: string, data: any) =>
+    api.patch(`/admin/pipelines/${id}/distribution/${userId}`, data).then(r => r.data),
+  resetDistribution:  (id: string) =>
+    api.post(`/admin/pipelines/${id}/distribution/reset`).then(r => r.data),
   listLossReasons:   () => api.get('/admin/loss-reasons').then(r => r.data),
   createLossReason:  (data: any) => api.post('/admin/loss-reasons', data).then(r => r.data),
   updateLossReason:  (id: string, data: any) => api.patch(`/admin/loss-reasons/${id}`, data).then(r => r.data),

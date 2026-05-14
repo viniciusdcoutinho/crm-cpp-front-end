@@ -531,7 +531,7 @@ function PipelinesTab() {
 
   const emptyForm = {
     name: '', slug: '', color: '#3b82f6',
-    idTelefoniaOpens: '', idWhatsOpens: '', idRdstation: '',
+    idTelefoniaOpens: '', idWhatsOpens: '',
   }
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -585,7 +585,6 @@ function PipelinesTab() {
       color: p.color || '#3b82f6',
       idTelefoniaOpens: p.idTelefoniaOpens || '',
       idWhatsOpens:     p.idWhatsOpens     || '',
-      idRdstation:      p.idRdstation      || '',
     })
     setShowForm(true)
   }
@@ -653,10 +652,18 @@ function PipelinesTab() {
             <label className="block text-xs text-gray-500 mb-1">ID WhatsApp Opens</label>
             <input type="text" value={form.idWhatsOpens} onChange={e => setForm(f => ({ ...f, idWhatsOpens: e.target.value }))} className={inputCls} />
           </div>
-          <div className="col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">ID RD Station</label>
-            <input type="text" value={form.idRdstation} onChange={e => setForm(f => ({ ...f, idRdstation: e.target.value }))} className={inputCls} />
-          </div>
+
+          {isEditing && editingId && (
+            <>
+              <div className="col-span-2 pt-3 border-t border-gray-200">
+                <PipelineSlugsEditor pipelineId={editingId} />
+              </div>
+              <div className="col-span-2 pt-3 border-t border-gray-200">
+                <PipelineDistributionEditor pipelineId={editingId} />
+              </div>
+            </>
+          )}
+
           <div className="col-span-2 flex justify-end gap-2 pt-2">
             <button onClick={reset} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
             <button onClick={submit} disabled={isPending || !form.name.trim()} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
@@ -674,10 +681,9 @@ function PipelinesTab() {
               <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
               <p className="text-xs text-gray-400 truncate">
                 {p.slug}
-                {(p.idTelefoniaOpens || p.idWhatsOpens || p.idRdstation) && <> · </>}
+                {(p.idTelefoniaOpens || p.idWhatsOpens) && <> · </>}
                 {p.idTelefoniaOpens && <>tel {p.idTelefoniaOpens} </>}
-                {p.idWhatsOpens     && <>· wpp {p.idWhatsOpens} </>}
-                {p.idRdstation      && <>· rd {p.idRdstation}</>}
+                {p.idWhatsOpens     && <>· wpp {p.idWhatsOpens}</>}
               </p>
             </div>
             {p.isDefaultForWebhooks ? (
@@ -704,6 +710,181 @@ function PipelinesTab() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── PipelineSlugsEditor ──────────────────────────────────────────
+function PipelineSlugsEditor({ pipelineId }: { pipelineId: string }) {
+  const qc = useQueryClient()
+  const { data: slugs = [] } = useQuery<{ slug: string }[]>({
+    queryKey: ['pipeline-slugs', pipelineId],
+    queryFn:  () => adminApi.listPipelineSlugs(pipelineId),
+  })
+  const [draft, setDraft] = useState('')
+  const [error, setError] = useState('')
+
+  const add = useMutation({
+    mutationFn: (slug: string) => adminApi.addPipelineSlug(pipelineId, slug),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pipeline-slugs', pipelineId] })
+      setDraft(''); setError('')
+    },
+    onError: (err: any) => {
+      setError(err?.response?.data?.message || err?.response?.data?.error || 'Erro ao adicionar slug')
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (slug: string) => adminApi.deletePipelineSlug(pipelineId, slug),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pipeline-slugs', pipelineId] }),
+  })
+
+  const submit = () => {
+    const s = draft.trim()
+    if (!s) return
+    add.mutate(s)
+  }
+
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-2">
+        Slugs de LP (roteamento RD Station)
+      </label>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {slugs.map(s => (
+          <span key={s.slug} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 rounded-full pl-2.5 pr-1 py-1">
+            <span className="text-gray-700">{s.slug}</span>
+            <button
+              type="button"
+              onClick={() => { if (confirm(`Remover "${s.slug}"?`)) remove.mutate(s.slug) }}
+              className="w-4 h-4 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-100 hover:text-red-500"
+            >×</button>
+          </span>
+        ))}
+        {slugs.length === 0 && (
+          <p className="text-xs text-gray-400">Nenhum slug — webhook RD desse pipeline cai no default.</p>
+        )}
+      </div>
+      <div className="flex gap-1.5">
+        <input
+          type="text"
+          value={draft}
+          onChange={e => { setDraft(e.target.value); setError('') }}
+          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), submit())}
+          placeholder="lp-ares-de-alta-capacidade ou URL completa"
+          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={add.isPending || !draft.trim()}
+          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          {add.isPending ? '...' : '+ Adicionar'}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  )
+}
+
+// ─── PipelineDistributionEditor ───────────────────────────────────
+function PipelineDistributionEditor({ pipelineId }: { pipelineId: string }) {
+  const qc = useQueryClient()
+  const { data: rows = [] } = useQuery<any[]>({
+    queryKey: ['pipeline-distribution', pipelineId],
+    queryFn:  () => adminApi.listDistribution(pipelineId),
+  })
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['pipeline-distribution', pipelineId] })
+
+  const update = useMutation({
+    mutationFn: ({ userId, data }: any) => adminApi.updateDistribution(pipelineId, userId, data),
+    onSuccess: invalidate,
+    onError: (err: any) => alert(err?.response?.data?.message || 'Erro ao atualizar distribuição'),
+  })
+  const resetAll = useMutation({
+    mutationFn: () => adminApi.resetDistribution(pipelineId),
+    onSuccess: invalidate,
+  })
+
+  if (rows.length === 0) {
+    return (
+      <div>
+        <label className="block text-xs text-gray-500 mb-2">Distribuição de leads</label>
+        <p className="text-xs text-gray-400">
+          Nenhuma vendedora vinculada a este pipeline. Adicione vendedoras na aba Usuários.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-xs text-gray-500">Distribuição de leads</label>
+        <button
+          type="button"
+          onClick={() => { if (confirm('Resetar contadores de todos? Isso zera o histórico de distribuição.')) resetAll.mutate() }}
+          className="text-[11px] text-gray-500 hover:text-red-600"
+        >
+          Resetar contadores
+        </button>
+      </div>
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="text-left px-3 py-2 text-[10px] font-medium text-gray-500 uppercase">Vendedora</th>
+              <th className="text-center px-3 py-2 text-[10px] font-medium text-gray-500 uppercase w-24">Recebe?</th>
+              <th className="text-center px-3 py-2 text-[10px] font-medium text-gray-500 uppercase w-24">Peso</th>
+              <th className="text-center px-3 py-2 text-[10px] font-medium text-gray-500 uppercase w-28">Contador</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {rows.map((r: any) => (
+              <tr key={r.user.id}>
+                <td className="px-3 py-2 text-gray-700 truncate">{r.user.name}</td>
+                <td className="px-3 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={!!r.receivesDistribution}
+                    onChange={e => update.mutate({ userId: r.user.id, data: { receivesDistribution: e.target.checked } })}
+                  />
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={r.distributionWeight}
+                    onChange={e => {
+                      const v = Number(e.target.value)
+                      if (v >= 1 && v <= 100) update.mutate({ userId: r.user.id, data: { distributionWeight: v } })
+                    }}
+                    className="w-16 text-sm border border-gray-200 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <input
+                    type="number"
+                    min={0}
+                    value={r.assignmentsCount}
+                    onChange={e => {
+                      const v = Number(e.target.value)
+                      if (v >= 0) update.mutate({ userId: r.user.id, data: { assignmentsCount: v } })
+                    }}
+                    className="w-20 text-sm border border-gray-200 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1.5">
+        Distribuição usa MIN(contador/peso). Vendedora nova é alinhada automaticamente ao habilitar.
+      </p>
     </div>
   )
 }
