@@ -1324,23 +1324,53 @@ function SlaTab() {
   const qc = useQueryClient()
   const { data: slas = [] } = useQuery({ queryKey: ['sla'], queryFn: adminApi.listSla })
   const update = useMutation({
-    mutationFn: ({ id, minutes }: any) => adminApi.updateSla(id, { minutes }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla'] }),
+    mutationFn: ({ id, ...data }: any) => adminApi.updateSla(id, data),
+    // Optimistic pra toggle responder no clique sem esperar request.
+    onMutate: async ({ id, ...data }: any) => {
+      await qc.cancelQueries({ queryKey: ['sla'] })
+      const previous = qc.getQueryData<any[]>(['sla'])
+      qc.setQueryData<any[]>(['sla'], (old) =>
+        old ? old.map(s => s.id === id ? { ...s, ...data } : s) : old)
+      return { previous }
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.previous) qc.setQueryData(['sla'], ctx.previous)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['sla'] }),
   })
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
       {slas.map((s: any) => (
-        <div key={s.id} className="flex items-center justify-between px-4 py-3">
-          <p className="text-sm text-gray-700 capitalize">{s.eventType.replace(/_/g, ' ')}</p>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              defaultValue={s.minutes}
-              onBlur={e => update.mutate({ id: s.id, minutes: Number(e.target.value) })}
-              className="w-20 text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-            <span className="text-xs text-gray-400">min</span>
+        <div key={s.id} className="flex items-center justify-between px-4 py-3 gap-3">
+          <div className="min-w-0">
+            <p className="text-sm text-gray-700 capitalize">{s.eventType.replace(/_/g, ' ')}</p>
+            {!s.enabled && (
+              <p className="text-[11px] text-gray-400">Desabilitado — novos leads não recebem deadline</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                defaultValue={s.minutes}
+                disabled={!s.enabled}
+                onBlur={e => update.mutate({ id: s.id, minutes: Number(e.target.value) })}
+                className={`w-20 text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-100 ${
+                  !s.enabled ? 'bg-gray-50 text-gray-400' : ''
+                }`}
+              />
+              <span className="text-xs text-gray-400">min</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => update.mutate({ id: s.id, enabled: !s.enabled })}
+              className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                s.enabled ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'
+              }`}
+            >
+              {s.enabled ? 'Ativo' : 'Inativo'}
+            </button>
           </div>
         </div>
       ))}
