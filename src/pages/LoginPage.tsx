@@ -36,10 +36,12 @@ export function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl mx-auto mb-4 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">CP</span>
-          </div>
-          <h1 className="text-xl font-medium text-gray-900">Casa do Picapau CRM</h1>
+          <img
+            src="/logo-picapau.png"
+            alt="Casa do Picapau"
+            className="w-28 h-28 mx-auto mb-4 rounded-2xl object-cover"
+          />
+          <h1 className="text-xl font-medium text-gray-900">Casa do Picapau</h1>
           <p className="text-sm text-gray-500 mt-1">Entre com sua conta</p>
         </div>
 
