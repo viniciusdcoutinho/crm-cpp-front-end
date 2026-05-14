@@ -41,7 +41,7 @@ export function LoginPage() {
             alt="Casa do Picapau"
             className="w-28 h-28 mx-auto mb-4 rounded-2xl object-cover"
           />
-          <h1 className="text-xl font-medium text-gray-900">Canais Digitais Casa do Pica-pau</h1>
+          <h1 className="text-xl font-medium text-gray-900">Canais Digitais<br />Casa do Pica-pau</h1>
           <p className="text-sm text-gray-500 mt-1">Entre com sua conta</p>
         </div>
 
