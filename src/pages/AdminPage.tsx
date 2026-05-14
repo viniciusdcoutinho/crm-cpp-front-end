@@ -237,6 +237,10 @@ function UsersTab() {
     mutationFn: ({ id, active }: any) => adminApi.updateUser(id, { active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   })
+  const unlock = useMutation({
+    mutationFn: (id: string) => adminApi.unlockUser(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  })
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setShowForm(true) }
   const openEdit = (u: any) => {
@@ -462,6 +466,22 @@ function UsersTab() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {u.locked && (
+                <span
+                  className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wide"
+                  title={u.lockedAt ? `Bloqueado em ${new Date(u.lockedAt).toLocaleString('pt-BR')}` : 'Bloqueado'}
+                >
+                  Bloqueado
+                </span>
+              )}
+              {u.locked && (
+                <button
+                  onClick={() => { if (confirm(`Desbloquear o usuário "${u.name}"?`)) unlock.mutate(u.id) }}
+                  className="text-xs text-blue-600 hover:underline px-2 py-1"
+                >
+                  Desbloquear
+                </button>
+              )}
               <button onClick={() => openEdit(u)} className="text-xs text-blue-600 hover:underline px-2 py-1">
                 Editar
               </button>

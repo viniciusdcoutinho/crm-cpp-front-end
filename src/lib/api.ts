@@ -106,6 +106,8 @@ export const adminApi = {
   updateUser:   (id: string, data: any) => api.patch(`/admin/users/${id}`, data).then(r => r.data),
   changeUserPassword: (id: string, password: string) =>
     api.patch(`/admin/users/${id}/password`, { password }).then(r => r.data),
+  unlockUser: (id: string) =>
+    api.post(`/admin/users/${id}/unlock`).then(r => r.data),
   uploadUserPhoto: (id: string, file: File) => {
     const fd = new FormData()
     fd.append('file', file)

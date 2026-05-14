@@ -25,8 +25,14 @@ export function LoginPage() {
       queryClient.clear()
       setUser(data)
       navigate('/')
-    } catch {
-      setError('E-mail ou senha inválidos.')
+    } catch (err: any) {
+      // Backend retorna mensagem detalhada (tentativas restantes,
+      // usuario bloqueado, etc) em err.response.data.message. Cai pra
+      // mensagem generica se a request nem chegou no servidor.
+      const msg = err?.response?.data?.message
+        || err?.response?.data?.error
+        || 'E-mail ou senha inválidos.'
+      setError(msg)
     } finally {
       setLoading(false)
     }
