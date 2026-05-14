@@ -34,6 +34,7 @@ export const authApi = {
 export type LeadFilters = {
   userId?: string
   statusId?: string
+  pipelineId?: string
   dateFrom?: string
   dateTo?: string
   motivoNaoVenda?: string
@@ -55,7 +56,12 @@ export const leadsApi = {
 }
 
 export const statusesApi = {
-  list: () => api.get('/api/statuses').then(r => r.data),
+  list: (pipelineId?: string) =>
+    api.get('/api/statuses', { params: pipelineId ? { pipelineId } : undefined }).then(r => r.data),
+}
+
+export const pipelinesApi = {
+  mine: () => api.get('/api/pipelines/me').then(r => r.data),
 }
 
 export const scriptsApi = {
@@ -83,6 +89,7 @@ export const lossReasonsApi = {
 
 export const usersApi = {
   vendedoras: () => api.get('/api/users/vendedoras').then(r => r.data),
+  me:         () => api.get('/api/users/me').then(r => r.data),
 }
 
 export const contactsApi = {
@@ -102,10 +109,15 @@ export const adminApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data)
   },
-  listStatuses: () => api.get('/admin/statuses').then(r => r.data),
+  listStatuses: (pipelineId?: string) =>
+    api.get('/admin/statuses', { params: pipelineId ? { pipelineId } : undefined }).then(r => r.data),
   createStatus: (data: any) => api.post('/admin/statuses', data).then(r => r.data),
   updateStatus: (id: string, data: any) => api.patch(`/admin/statuses/${id}`, data).then(r => r.data),
   deleteStatus: (id: string) => api.delete(`/admin/statuses/${id}`),
+  listPipelines:   () => api.get('/admin/pipelines').then(r => r.data),
+  createPipeline:  (data: any) => api.post('/admin/pipelines', data).then(r => r.data),
+  updatePipeline:  (id: string, data: any) => api.patch(`/admin/pipelines/${id}`, data).then(r => r.data),
+  deletePipeline:  (id: string) => api.delete(`/admin/pipelines/${id}`),
   listLossReasons:   () => api.get('/admin/loss-reasons').then(r => r.data),
   createLossReason:  (data: any) => api.post('/admin/loss-reasons', data).then(r => r.data),
   updateLossReason:  (id: string, data: any) => api.patch(`/admin/loss-reasons/${id}`, data).then(r => r.data),

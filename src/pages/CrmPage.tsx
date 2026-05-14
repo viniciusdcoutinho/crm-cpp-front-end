@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { KanbanBoard } from '../components/kanban/KanbanBoard'
 import { LeadModal } from '../components/kanban/LeadModal'
+import { PipelineSwitcher } from '../components/shared/PipelineSwitcher'
 import {
   FilterBar,
   EMPTY_FILTERS,
@@ -12,11 +13,16 @@ import {
   type FilterState,
 } from '../components/kanban/FilterBar'
 import { performanceApi, leadsApi, type LeadFilters } from '../lib/api'
+import { useCurrentPipeline } from '../lib/pipelines'
 
 export function CrmPage() {
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
-  const apiParams = filtersToApiParams(filters)
+  const { current: currentPipeline } = useCurrentPipeline()
+  const apiParams: LeadFilters = {
+    ...filtersToApiParams(filters),
+    pipelineId: currentPipeline?.id,
+  }
 
   const { data: slaAlerts = [] } = useQuery({
     queryKey: ['sla-alerts'],
@@ -26,9 +32,14 @@ export function CrmPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-medium text-gray-900">Leads</h1>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-medium text-gray-900">
+            Leads
+            {currentPipeline && (
+              <span className="ml-2 text-sm font-normal text-gray-400">· {currentPipeline.name}</span>
+            )}
+          </h1>
           {slaAlerts.length > 0 && (
             <p className="text-sm text-red-500 mt-0.5">
               {slaAlerts.length} lead(s) com SLA estourado
@@ -36,19 +47,22 @@ export function CrmPage() {
           )}
         </div>
 
-        <div className="flex border border-gray-200 rounded-xl overflow-hidden">
-          <button
-            onClick={() => setView('kanban')}
-            className={`px-3 py-2 transition-colors ${view === 'kanban' ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:bg-gray-50'}`}
-          >
-            <LayoutGrid size={16} />
-          </button>
-          <button
-            onClick={() => setView('list')}
-            className={`px-3 py-2 transition-colors ${view === 'list' ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:bg-gray-50'}`}
-          >
-            <List size={16} />
-          </button>
+        <div className="flex items-center gap-3">
+          <PipelineSwitcher />
+          <div className="flex border border-gray-200 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setView('kanban')}
+              className={`px-3 py-2 transition-colors ${view === 'kanban' ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:bg-gray-50'}`}
+            >
+              <LayoutGrid size={16} />
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className={`px-3 py-2 transition-colors ${view === 'list' ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:bg-gray-50'}`}
+            >
+              <List size={16} />
+            </button>
+          </div>
         </div>
       </div>
 

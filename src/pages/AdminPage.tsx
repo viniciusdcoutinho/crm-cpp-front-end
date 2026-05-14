@@ -72,15 +72,16 @@ export function PerformancePage() {
 
 // ─── Admin Page ───────────────────────────────────────────────
 export function AdminPage() {
-  const [tab, setTab] = useState<'users' | 'statuses' | 'reasons' | 'scripts' | 'sla' | 'settings' | 'logs'>('users')
+  const [tab, setTab] = useState<'users' | 'pipelines' | 'statuses' | 'reasons' | 'scripts' | 'sla' | 'settings' | 'logs'>('users')
   const tabs = [
-    { id: 'users',    label: 'Usuários' },
-    { id: 'statuses', label: 'Status do kanban' },
-    { id: 'reasons',  label: 'Motivos de não venda' },
-    { id: 'scripts',  label: 'Scripts padrão' },
-    { id: 'sla',      label: 'Config SLA' },
-    { id: 'settings', label: 'Configurações' },
-    { id: 'logs',     label: 'Webhook logs' },
+    { id: 'users',     label: 'Usuários' },
+    { id: 'pipelines', label: 'Pipelines' },
+    { id: 'statuses',  label: 'Status do kanban' },
+    { id: 'reasons',   label: 'Motivos de não venda' },
+    { id: 'scripts',   label: 'Scripts padrão' },
+    { id: 'sla',       label: 'Config SLA' },
+    { id: 'settings',  label: 'Configurações' },
+    { id: 'logs',      label: 'Webhook logs' },
   ] as const
 
   return (
@@ -101,13 +102,14 @@ export function AdminPage() {
           </button>
         ))}
       </div>
-      {tab === 'users'    && <UsersTab />}
-      {tab === 'statuses' && <StatusesTab />}
-      {tab === 'reasons'  && <LossReasonsTab />}
-      {tab === 'scripts'  && <ScriptsTab />}
-      {tab === 'sla'      && <SlaTab />}
-      {tab === 'settings' && <SettingsTab />}
-      {tab === 'logs'     && <LogsTab />}
+      {tab === 'users'     && <UsersTab />}
+      {tab === 'pipelines' && <PipelinesTab />}
+      {tab === 'statuses'  && <StatusesTab />}
+      {tab === 'reasons'   && <LossReasonsTab />}
+      {tab === 'scripts'   && <ScriptsTab />}
+      {tab === 'sla'       && <SlaTab />}
+      {tab === 'settings'  && <SettingsTab />}
+      {tab === 'logs'      && <LogsTab />}
     </div>
   )
 }
@@ -206,8 +208,13 @@ function prettifyKey(key: string): string {
 
 function UsersTab() {
   const qc = useQueryClient()
-  const { data: users = [] } = useQuery({ queryKey: ['admin-users'], queryFn: adminApi.listUsers })
-  const emptyForm = { name: '', email: '', telefone: '', password: '', role: 'vendedora', opensAgentName: '', opensAgentPeer: '', opensUserId: '', mondayPersonId: '', photoUrl: '' }
+  const { data: users = [] }     = useQuery({ queryKey: ['admin-users'],     queryFn: adminApi.listUsers })
+  const { data: pipelines = [] } = useQuery({ queryKey: ['admin-pipelines'], queryFn: adminApi.listPipelines })
+  const emptyForm = {
+    name: '', email: '', telefone: '', password: '', role: 'vendedora',
+    opensAgentName: '', opensAgentPeer: '', opensUserId: '', mondayPersonId: '', photoUrl: '',
+    pipelineIds: [] as string[], defaultPipelineId: '' as string,
+  }
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -238,16 +245,33 @@ function UsersTab() {
       opensUserId: u.opensUserId || '',
       mondayPersonId: u.mondayPersonId || '',
       photoUrl: u.photoUrl || '',
+      pipelineIds: (u.pipelines || []).map((p: any) => p.id),
+      defaultPipelineId: u.defaultPipeline?.id || '',
     })
     setShowForm(true)
   }
 
+  const togglePipeline = (id: string) => {
+    setForm(f => {
+      const has = f.pipelineIds.includes(id)
+      const next = has ? f.pipelineIds.filter(x => x !== id) : [...f.pipelineIds, id]
+      // Se removeu o preferencial, limpa.
+      const nextDefault = next.includes(f.defaultPipelineId) ? f.defaultPipelineId : ''
+      return { ...f, pipelineIds: next, defaultPipelineId: nextDefault }
+    })
+  }
+
   const submit = () => {
+    // Se o user tem 1 so pipeline, preferencial automaticamente eh esse;
+    // se nenhum, preferencial null. Se 2+, respeita a escolha (vazio = null).
+    const computedDefault = form.pipelineIds.length === 1
+      ? form.pipelineIds[0]
+      : (form.defaultPipelineId || null)
     if (editingId) {
       const { password: _p, email: _e, ...rest } = form
-      update.mutate({ id: editingId, ...rest })
+      update.mutate({ id: editingId, ...rest, defaultPipelineId: computedDefault })
     } else {
-      create.mutate(form)
+      create.mutate({ ...form, defaultPipelineId: computedDefault })
     }
   }
 
@@ -330,6 +354,53 @@ function UsersTab() {
               </p>
             )}
           </div>
+
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">Pipelines com acesso</label>
+            {pipelines.length === 0 ? (
+              <p className="text-xs text-gray-400">Nenhum pipeline cadastrado.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {pipelines.filter((p: any) => p.active).map((p: any) => {
+                  const checked = form.pipelineIds.includes(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePipeline(p.id)}
+                      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        checked
+                          ? 'bg-blue-50 border-blue-200 text-blue-700'
+                          : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                      {p.name}
+                      {checked && <span className="text-blue-500">✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {form.pipelineIds.length > 1 && (
+              <div className="mt-3">
+                <label className="block text-xs text-gray-500 mb-1">Pipeline preferencial (abre como padrão)</label>
+                <select
+                  value={form.defaultPipelineId}
+                  onChange={e => setForm(f => ({ ...f, defaultPipelineId: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="">(nenhum — escolhe o primeiro da lista)</option>
+                  {pipelines
+                    .filter((p: any) => form.pipelineIds.includes(p.id))
+                    .map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+              </div>
+            )}
+          </div>
+
           <div className="col-span-2 flex justify-end gap-2 pt-2">
             <button onClick={reset} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
             <button onClick={submit} disabled={isPending} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
@@ -358,6 +429,12 @@ function UsersTab() {
                     Opens: {u.opensAgentName || '—'}
                     {u.opensAgentPeer && <> · ramal {u.opensAgentPeer}</>}
                     {u.opensUserId && <> · id {u.opensUserId}</>}
+                  </p>
+                )}
+                {u.role !== 'admin' && u.pipelines && u.pipelines.length > 0 && (
+                  <p className="text-xs text-gray-400 truncate">
+                    Pipelines: {u.pipelines.map((p: any) => p.name).join(', ')}
+                    {u.defaultPipeline && <> · prefere {u.defaultPipeline.name}</>}
                   </p>
                 )}
               </div>
@@ -430,9 +507,209 @@ function PhotoUpload({ userId, onUploaded }: { userId: string | null; onUploaded
   )
 }
 
+function PipelinesTab() {
+  const qc = useQueryClient()
+  const { data: pipelines = [] } = useQuery({
+    queryKey: ['admin-pipelines'],
+    queryFn: adminApi.listPipelines,
+  })
+
+  const emptyForm = {
+    name: '', slug: '', color: '#3b82f6',
+    idTelefoniaOpens: '', idWhatsOpens: '', idRdstation: '',
+  }
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState(emptyForm)
+
+  const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ['admin-pipelines'] })
+    qc.invalidateQueries({ queryKey: ['my-pipelines'] })
+  }
+
+  const create = useMutation({
+    mutationFn: (data: any) => adminApi.createPipeline(data),
+    onSuccess: () => { invalidateAll(); reset() },
+    onError: (err: any) => alert(err?.response?.data?.message || 'Erro ao criar pipeline'),
+  })
+  const update = useMutation({
+    mutationFn: ({ id, ...data }: any) => adminApi.updatePipeline(id, data),
+    onSuccess: () => { invalidateAll(); reset() },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => adminApi.deletePipeline(id),
+    onSuccess: () => invalidateAll(),
+    onError: (err: any) => alert(err?.response?.data?.message || 'Erro ao excluir pipeline'),
+  })
+  const toggleActive = useMutation({
+    mutationFn: ({ id, active }: any) => adminApi.updatePipeline(id, { active }),
+    onSuccess: () => invalidateAll(),
+  })
+  const markDefault = useMutation({
+    mutationFn: (id: string) => adminApi.updatePipeline(id, { isDefaultForWebhooks: true }),
+    onSuccess: () => invalidateAll(),
+  })
+
+  const slugify = (s: string) =>
+    s.toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+
+  const openCreate = () => {
+    setEditingId(null)
+    setForm(emptyForm)
+    setShowForm(true)
+  }
+  const openEdit = (p: any) => {
+    setEditingId(p.id)
+    setForm({
+      name: p.name || '',
+      slug: p.slug || '',
+      color: p.color || '#3b82f6',
+      idTelefoniaOpens: p.idTelefoniaOpens || '',
+      idWhatsOpens:     p.idWhatsOpens     || '',
+      idRdstation:      p.idRdstation      || '',
+    })
+    setShowForm(true)
+  }
+  const submit = () => {
+    if (editingId) {
+      const { slug: _s, ...rest } = form
+      update.mutate({ id: editingId, ...rest })
+    } else {
+      const payload = { ...form, slug: form.slug.trim() || slugify(form.name) }
+      create.mutate(payload)
+    }
+  }
+
+  const isEditing = editingId !== null
+  const isPending = create.isPending || update.isPending
+  const inputCls = 'w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-100'
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-gray-600">{pipelines.length} pipeline(s)</p>
+        <button onClick={() => showForm ? reset() : openCreate()} className="text-sm text-blue-600 hover:underline">
+          {showForm ? 'Cancelar' : '+ Novo pipeline'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Nome</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(f => ({
+                ...f,
+                name: e.target.value,
+                slug: !isEditing && !f.slug ? slugify(e.target.value) : f.slug,
+              }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Slug{isEditing && ' (não editável)'}</label>
+            <input
+              type="text"
+              value={form.slug}
+              disabled={isEditing}
+              onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
+              className={`${inputCls} ${isEditing ? 'bg-gray-100 text-gray-500' : ''}`}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Cor</label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="h-9 w-12 rounded cursor-pointer border border-gray-200" />
+              <input type="text" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className={inputCls} />
+            </div>
+          </div>
+          <div />
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">ID Telefonia Opens</label>
+            <input type="text" value={form.idTelefoniaOpens} onChange={e => setForm(f => ({ ...f, idTelefoniaOpens: e.target.value }))} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">ID WhatsApp Opens</label>
+            <input type="text" value={form.idWhatsOpens} onChange={e => setForm(f => ({ ...f, idWhatsOpens: e.target.value }))} className={inputCls} />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">ID RD Station</label>
+            <input type="text" value={form.idRdstation} onChange={e => setForm(f => ({ ...f, idRdstation: e.target.value }))} className={inputCls} />
+          </div>
+          <div className="col-span-2 flex justify-end gap-2 pt-2">
+            <button onClick={reset} className="text-sm text-gray-500 px-4 py-2">Cancelar</button>
+            <button onClick={submit} disabled={isPending || !form.name.trim()} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {isPending ? 'Salvando...' : (isEditing ? 'Salvar' : 'Criar')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+        {pipelines.map((p: any) => (
+          <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+              <p className="text-xs text-gray-400 truncate">
+                {p.slug}
+                {(p.idTelefoniaOpens || p.idWhatsOpens || p.idRdstation) && <> · </>}
+                {p.idTelefoniaOpens && <>tel {p.idTelefoniaOpens} </>}
+                {p.idWhatsOpens     && <>· wpp {p.idWhatsOpens} </>}
+                {p.idRdstation      && <>· rd {p.idRdstation}</>}
+              </p>
+            </div>
+            {p.isDefaultForWebhooks ? (
+              <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full whitespace-nowrap">webhooks ↓</span>
+            ) : (
+              <button onClick={() => markDefault.mutate(p.id)} className="text-[11px] text-gray-400 hover:text-blue-600 px-2" title="Marcar como destino dos webhooks">
+                marcar webhooks
+              </button>
+            )}
+            <button onClick={() => openEdit(p)} className="text-xs text-blue-600 hover:underline px-2 py-1">
+              Editar
+            </button>
+            <button
+              onClick={() => toggleActive.mutate({ id: p.id, active: !p.active })}
+              className={`text-xs px-3 py-1 rounded-full transition-colors ${p.active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}
+            >
+              {p.active ? 'Ativo' : 'Inativo'}
+            </button>
+            {!p.isDefaultForWebhooks && (
+              <button onClick={() => { if (confirm(`Excluir o pipeline "${p.name}"?`)) remove.mutate(p.id) }} className="text-xs text-red-500 hover:underline px-2 py-1">
+                Excluir
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function StatusesTab() {
   const qc = useQueryClient()
-  const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: adminApi.listStatuses })
+  const { data: pipelines = [] } = useQuery({
+    queryKey: ['admin-pipelines'],
+    queryFn: adminApi.listPipelines,
+  })
+  const [pipelineId, setPipelineId] = useState<string>('')
+  // Quando lista de pipelines chega, seleciona o primeiro ativo por default.
+  if (!pipelineId && pipelines.length > 0) {
+    const first = pipelines.find((p: any) => p.active) ?? pipelines[0]
+    setPipelineId(first.id)
+  }
+  const { data: statuses = [] } = useQuery({
+    queryKey: ['admin-statuses', pipelineId],
+    queryFn:  () => adminApi.listStatuses(pipelineId),
+    enabled: !!pipelineId,
+  })
   const emptyForm = { label: '', color: '#3B8BD4', position: 0, isFinal: false }
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -440,17 +717,22 @@ function StatusesTab() {
 
   const reset = () => { setShowForm(false); setEditingId(null); setForm(emptyForm) }
 
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['admin-statuses'] })
+    qc.invalidateQueries({ queryKey: ['statuses'] })
+  }
+
   const create = useMutation({
-    mutationFn: adminApi.createStatus,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['statuses'] }); reset() },
+    mutationFn: (data: any) => adminApi.createStatus({ ...data, pipelineId }),
+    onSuccess: () => { invalidate(); reset() },
   })
   const update = useMutation({
     mutationFn: ({ id, ...data }: any) => adminApi.updateStatus(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['statuses'] }); reset() },
+    onSuccess: () => { invalidate(); reset() },
   })
   const remove = useMutation({
     mutationFn: (id: string) => adminApi.deleteStatus(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['statuses'] }),
+    onSuccess: () => invalidate(),
     onError: (err: any) => alert(err?.response?.data?.message || err?.response?.data?.error || 'Erro ao excluir status'),
   })
 
@@ -476,10 +758,24 @@ function StatusesTab() {
   const isPending = create.isPending || update.isPending
   const inputCls = 'w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-100'
 
+  if (pipelines.length === 0) {
+    return <p className="text-sm text-gray-400">Crie um pipeline primeiro na aba Pipelines.</p>
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-600">{statuses.length} status</p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="text-xs text-gray-500">Pipeline:</label>
+        <select
+          value={pipelineId}
+          onChange={e => { setPipelineId(e.target.value); reset() }}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        >
+          {pipelines.map((p: any) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <p className="text-sm text-gray-600 flex-1">{statuses.length} status nesse funil</p>
         <button onClick={() => showForm ? reset() : openCreate()} className="text-sm text-blue-600 hover:underline">
           {showForm ? 'Cancelar' : '+ Novo status'}
         </button>

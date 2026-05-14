@@ -12,11 +12,16 @@ interface Props { filters?: LeadFilters }
 
 export function KanbanBoard({ filters }: Props) {
   const qc = useQueryClient()
+  const pipelineId = filters?.pipelineId
   const { data: leads = [] }    = useQuery({
     queryKey: ['leads', filters],
     queryFn: () => leadsApi.list(filters),
   })
-  const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
+  const { data: statuses = [] } = useQuery({
+    queryKey: ['statuses', pipelineId],
+    queryFn: () => statusesApi.list(pipelineId),
+    enabled: !!pipelineId,
+  })
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })

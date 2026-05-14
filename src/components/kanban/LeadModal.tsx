@@ -28,7 +28,12 @@ export function LeadModal({ lead, onClose }: Props) {
 
   const navigate = useNavigate()
   const currentUser = useAuthStore(s => s.user)
-  const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
+  const pipelineId: string | undefined = lead.pipeline?.id
+  const { data: statuses = [] } = useQuery({
+    queryKey: ['statuses', pipelineId],
+    queryFn:  () => statusesApi.list(pipelineId),
+    enabled: !!pipelineId,
+  })
 
   const contactId: string | undefined = lead.contact?.id
   const { data: contactDetail } = useQuery({

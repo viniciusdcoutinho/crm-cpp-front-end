@@ -12,8 +12,10 @@ import {
 import {
   FilterBar, EMPTY_FILTERS, filtersToApiParams, type FilterState,
 } from '../components/kanban/FilterBar'
+import { PipelineSwitcher } from '../components/shared/PipelineSwitcher'
 import { leadsApi, statusesApi, usersApi } from '../lib/api'
 import { useAuthStore } from '../lib/store'
+import { useCurrentPipeline } from '../lib/pipelines'
 
 const formatBrl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -47,13 +49,21 @@ export function PerformancePage() {
   const currentUser = useAuthStore(s => s.user)
   const isAdmin = currentUser?.role === 'admin'
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
-  const apiParams = filtersToApiParams(filters)
+  const { current: currentPipeline } = useCurrentPipeline()
+  const apiParams = {
+    ...filtersToApiParams(filters),
+    pipelineId: currentPipeline?.id,
+  }
 
   const { data: leads = [] } = useQuery({
     queryKey: ['perf-leads', apiParams],
     queryFn: () => leadsApi.list(apiParams),
   })
-  const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: statusesApi.list })
+  const { data: statuses = [] } = useQuery({
+    queryKey: ['statuses', currentPipeline?.id],
+    queryFn: () => statusesApi.list(currentPipeline?.id),
+    enabled: !!currentPipeline?.id,
+  })
   const { data: vendedoras = [] } = useQuery({ queryKey: ['vendedoras'], queryFn: usersApi.vendedoras })
 
   const kpis = useMemo(() => computeKpis(leads), [leads])
@@ -64,11 +74,17 @@ export function PerformancePage() {
 
   return (
     <div className="h-full flex flex-col overflow-y-auto pb-8">
-      <header className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-          Performance
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">Métricas, funil de vendas e ranking de vendedoras.</p>
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            Performance
+            {currentPipeline && (
+              <span className="ml-2 text-base font-normal text-gray-400">· {currentPipeline.name}</span>
+            )}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Métricas, funil de vendas e ranking de vendedoras.</p>
+        </div>
+        <PipelineSwitcher />
       </header>
 
       <FilterBar filters={filters} onChange={setFilters} />
