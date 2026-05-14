@@ -14,6 +14,7 @@ export const PASSWORD_RULES: PasswordRule[] = [
   { label: 'Mais de 8 caracteres',           test: pw => pw.length > 8 },
   { label: 'Pelo menos 1 letra maiúscula',   test: pw => /[A-Z]/.test(pw) },
   { label: 'Pelo menos 1 letra minúscula',   test: pw => /[a-z]/.test(pw) },
+  { label: 'Pelo menos 1 número',            test: pw => /\d/.test(pw) },
   { label: 'Pelo menos 1 caractere especial', test: pw => /[^A-Za-z0-9]/.test(pw) },
 ]
 
