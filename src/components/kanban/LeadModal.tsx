@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3, Archive, ArchiveRestore, Play, FileText, RotateCcw, AlertCircle, Check } from 'lucide-react'
+import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3, Archive, ArchiveRestore, Play, FileText, ScrollText, RotateCcw, AlertCircle, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { leadsApi, statusesApi, lossReasonsApi, usersApi, contactsApi } from '../../lib/api'
@@ -452,6 +452,7 @@ function InteractionItem({
 
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
+  const [showTranscript, setShowTranscript] = useState(false)
 
   const fetchRecording = useMutation({
     mutationFn: () => leadsApi.recordingUrl(leadId, interaction.id),
@@ -524,6 +525,17 @@ function InteractionItem({
                 {showSummary ? 'Ocultar' : 'Resumo'}
               </button>
             )}
+            {interaction.transcript && (
+              <button
+                type="button"
+                onClick={() => setShowTranscript(v => !v)}
+                className="flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 hover:bg-purple-100 px-2 py-0.5 rounded-full"
+                title="Ver transcrição bruta da ligação (Whisper)"
+              >
+                <ScrollText size={10} />
+                {showTranscript ? 'Ocultar' : 'Transcrição'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { if (confirm('Reprocessar gravacao? Vai consumir creditos de IA.')) reprocess.mutate() }}
@@ -555,6 +567,18 @@ function InteractionItem({
               className="w-full h-8"
               onError={() => alert('Erro ao carregar gravação')}
             />
+          </div>
+        )}
+
+        {/* Transcricao bruta do Whisper (admin clicou em mostrar) */}
+        {showTranscript && interaction.transcript && (
+          <div className="mt-1.5 bg-purple-50/60 border border-purple-100 rounded-lg p-2.5 max-h-60 overflow-y-auto">
+            <p className="text-[10px] text-purple-700 font-medium uppercase tracking-wide mb-1">
+              Transcrição (Whisper)
+            </p>
+            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed text-[11px]">
+              {interaction.transcript}
+            </p>
           </div>
         )}
 
