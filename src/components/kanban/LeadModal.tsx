@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3, Archive, ArchiveRestore } from 'lucide-react'
+import { X, Star, Phone, MessageCircle, Send, Users as UsersIcon, Clock, Edit3, Archive, ArchiveRestore, Play, FileText, RotateCcw, AlertCircle, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { leadsApi, statusesApi, lossReasonsApi, usersApi, contactsApi } from '../../lib/api'
@@ -342,7 +342,13 @@ export function LeadModal({ lead, onClose }: Props) {
               </p>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {interactions.map((it: any, idx: number) => (
-                  <InteractionItem key={it.id} interaction={it} isFirst={idx === 0} />
+                  <InteractionItem
+                    key={it.id}
+                    interaction={it}
+                    isFirst={idx === 0}
+                    isAdmin={isAdmin}
+                    leadId={lead.id}
+                  />
                 ))}
               </div>
             </div>
@@ -432,12 +438,45 @@ const EVENT_LABELS: Record<string, string> = {
   manual:             'Manual',
 }
 
-function InteractionItem({ interaction, isFirst }: { interaction: any; isFirst: boolean }) {
+function InteractionItem({
+  interaction, isFirst, isAdmin, leadId,
+}: {
+  interaction: any; isFirst: boolean; isAdmin: boolean; leadId: string
+}) {
+  const qc = useQueryClient()
   const isCall = interaction.channelType === 'call'
-  const isClose = ['chatterminated', 'queuehangup', 'closecall', 'clicktocallhangup']
-    .includes(interaction.eventType)
+  const isCallClose = isCall &&
+    ['queuehangup', 'closecall', 'clicktocallhangup'].includes(interaction.eventType)
   const Icon = isCall ? Phone : MessageCircle
   const label = EVENT_LABELS[interaction.eventType] || interaction.eventType
+
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [showSummary, setShowSummary] = useState(false)
+
+  const fetchRecording = useMutation({
+    mutationFn: () => leadsApi.recordingUrl(leadId, interaction.id),
+    onSuccess: (data: any) => setAudioUrl(data.url),
+    onError: (err: any) => alert(err?.response?.data?.error || 'Gravacao indisponivel'),
+  })
+  const reprocess = useMutation({
+    mutationFn: () => leadsApi.reprocessRecording(leadId, interaction.id),
+    onSuccess: () => {
+      // Backend retorna 202 e roda async. Reinvalida apos alguns segundos
+      // pra pegar o resultado (transcricao + resumo) - alternativa seria SSE.
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['interactions', leadId] }), 3000)
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['interactions', leadId] }), 8000)
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['interactions', leadId] }), 20000)
+    },
+  })
+
+  const status = interaction.processingStatus
+  const statusBadge = (() => {
+    if (status === 'processed')        return { label: 'Analisado',  cls: 'bg-emerald-50 text-emerald-700' }
+    if (status === 'processing')       return { label: 'Analisando…', cls: 'bg-blue-50 text-blue-700' }
+    if (status === 'skipped_too_long') return { label: 'Muito longa', cls: 'bg-gray-100 text-gray-500' }
+    if (status === 'error')            return { label: 'Erro',        cls: 'bg-red-50 text-red-700' }
+    return null
+  })()
 
   return (
     <div className="flex gap-2.5 text-xs">
@@ -454,12 +493,76 @@ function InteractionItem({ interaction, isFirst }: { interaction: any; isFirst: 
           <span className="text-gray-400">
             {interaction.startedAt && format(new Date(interaction.startedAt), "d/MM 'às' HH:mm", { locale: ptBR })}
           </span>
-          {isClose && interaction.notes && (
-            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full">com resumo</span>
+          {statusBadge && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusBadge.cls}`}>
+              {statusBadge.label}
+            </span>
           )}
         </div>
+
+        {/* Acoes de gravacao - admin only em call-close */}
+        {isAdmin && isCallClose && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <button
+              type="button"
+              onClick={() => fetchRecording.mutate()}
+              disabled={fetchRecording.isPending}
+              className="flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded-full disabled:opacity-50"
+              title="Ouvir gravação"
+            >
+              <Play size={10} />
+              {fetchRecording.isPending ? '...' : 'Ouvir'}
+            </button>
+            {interaction.notes && (
+              <button
+                type="button"
+                onClick={() => setShowSummary(v => !v)}
+                className="flex items-center gap-1 text-[11px] bg-amber-50 text-amber-700 hover:bg-amber-100 px-2 py-0.5 rounded-full"
+                title="Ver resumo gerado pela IA"
+              >
+                <FileText size={10} />
+                {showSummary ? 'Ocultar' : 'Resumo'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { if (confirm('Reprocessar gravacao? Vai consumir creditos de IA.')) reprocess.mutate() }}
+              disabled={reprocess.isPending || status === 'processing'}
+              className="flex items-center gap-1 text-[11px] bg-gray-50 text-gray-600 hover:bg-gray-100 px-2 py-0.5 rounded-full disabled:opacity-50"
+              title="Forçar nova análise pela IA"
+            >
+              <RotateCcw size={10} />
+              {reprocess.isPending ? '...' : 'Reprocessar'}
+            </button>
+            {status === 'error' && interaction.processingError && (
+              <span title={interaction.processingError} className="text-red-500">
+                <AlertCircle size={11} />
+              </span>
+            )}
+            {status === 'processed' && (
+              <Check size={11} className="text-emerald-500" />
+            )}
+          </div>
+        )}
+
+        {/* Audio player inline */}
+        {audioUrl && (
+          <div className="mt-1.5">
+            <audio
+              controls
+              autoPlay
+              src={audioUrl}
+              className="w-full h-8"
+              onError={() => alert('Erro ao carregar gravação')}
+            />
+          </div>
+        )}
+
+        {/* Resumo completo expandido (ou linhas comprimidas) */}
         {interaction.notes && (
-          <p className="text-gray-500 mt-0.5 whitespace-pre-wrap line-clamp-2 leading-relaxed">
+          <p className={`text-gray-500 mt-0.5 whitespace-pre-wrap leading-relaxed ${
+            showSummary ? '' : 'line-clamp-2'
+          }`}>
             {interaction.notes}
           </p>
         )}

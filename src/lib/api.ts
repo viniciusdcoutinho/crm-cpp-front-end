@@ -53,6 +53,10 @@ export const leadsApi = {
   interactions: (id: string) => api.get(`/api/leads/${id}/interactions`).then(r => r.data),
   archive:   (id: string) => api.post(`/api/leads/${id}/archive`).then(r => r.data),
   unarchive: (id: string) => api.post(`/api/leads/${id}/unarchive`).then(r => r.data),
+  recordingUrl: (leadId: string, interactionId: string) =>
+    api.get(`/api/leads/${leadId}/interactions/${interactionId}/recording`).then(r => r.data),
+  reprocessRecording: (leadId: string, interactionId: string) =>
+    api.post(`/api/leads/${leadId}/interactions/${interactionId}/reprocess-recording`).then(r => r.data),
 }
 
 export const statusesApi = {
