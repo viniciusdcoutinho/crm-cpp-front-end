@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { leadsApi, statusesApi, lossReasonsApi, usersApi, contactsApi } from '../../lib/api'
 import { useAuthStore } from '../../lib/store'
+import { ChatViewerModal } from './ChatViewerModal'
 
 interface Props { lead: any; onClose: () => void }
 
@@ -55,7 +56,17 @@ export function LeadModal({ lead, onClose }: Props) {
   })
 
   const [showTransfer, setShowTransfer] = useState(false)
+  const [showChat, setShowChat] = useState(false)
   const isAdmin = currentUser?.role === 'admin'
+
+  // Pre-fetch ligeiro pra saber se ha mensagens (e mostrar o botao).
+  const { data: messages = [] } = useQuery<any[]>({
+    queryKey: ['messages', lead.id, false],
+    queryFn:  () => leadsApi.messages(lead.id, false),
+    enabled: !!lead.id,
+    staleTime: 30_000,
+  })
+  const hasMessages = messages.length > 0
   const transfer = useMutation({
     mutationFn: (userId: string) => leadsApi.update(lead.id, { userId }),
     onSuccess: () => {
@@ -130,10 +141,33 @@ export function LeadModal({ lead, onClose }: Props) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {hasMessages && (
+              <button
+                type="button"
+                onClick={() => setShowChat(true)}
+                className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-full font-medium"
+                title="Ver conversa de WhatsApp/chat"
+              >
+                <MessageCircle size={14} /> Ver conversa
+                <span className="text-[10px] bg-emerald-200 text-emerald-800 px-1.5 rounded-full">
+                  {messages.length}
+                </span>
+              </button>
+            )}
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+              <X size={20} />
+            </button>
+          </div>
         </div>
+
+        {showChat && (
+          <ChatViewerModal
+            leadId={lead.id}
+            clienteName={lead.nomeCliente}
+            onClose={() => setShowChat(false)}
+          />
+        )}
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
